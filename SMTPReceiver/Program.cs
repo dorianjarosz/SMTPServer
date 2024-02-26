@@ -7,6 +7,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddHostedService<Worker>();
         services.AddSingleton<ISmtpReceiver, SmtpReceiver>();
     })
+    .UseWindowsService()
     .Build();
 
 host.Run();
