@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using MimeKit;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -33,15 +34,23 @@ namespace SMTPReceiver.Services
             {
                 TcpClient client = await listener.AcceptTcpClientAsync();
 
-                using (NetworkStream stream = client.GetStream())
+                using (NetworkStream stream = client.Available.())
                 using (var reader = new StreamReader(stream, Encoding.ASCII))
                 using (var writer = new StreamWriter(stream, Encoding.ASCII))
                 {
-                    string email;
+                    string emailContent;
 
-                    while ((email = await reader.ReadToEndAsync()) != null)
+                    while ((emailContent = await reader.ReadToEndAsync()) != null)
                     {
-                        _logger.LogInformation(email);
+                        var message = MimeMessage.Load(new MemoryStream(Encoding.UTF8.GetBytes(emailContent)));
+
+                        var address = ((MailboxAddress)message.From[0]).Address;
+
+                        var toRecipients = message.To;
+                        var ccRecipients = message.Cc;
+                        var bccRecipients = message.Bcc;
+
+
                     }
 
                     string response = "250 OK";
@@ -56,6 +65,18 @@ namespace SMTPReceiver.Services
                 _logger.LogError(ex, "SMTP Receiver: Operation cancelled.");
                 throw;
             }
+        }
+
+        private static string GetHeaderValue(IEnumerable<Header> headers, string headerName)
+        {
+            foreach (var header in headers)
+            {
+                if (header.Field.Equals(headerName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return header.Value;
+                }
+            }
+            return null;
         }
     }
 }
