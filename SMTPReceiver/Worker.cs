@@ -4,9 +4,9 @@ namespace SMTPReceiver
 {
     public class Worker : BackgroundService
     {
-        private readonly ISmtpReceiver _smtpReceiver;
+        private readonly ISmtpReceiverService _smtpReceiver;
 
-        public Worker(ISmtpReceiver smtpReceiver)
+        public Worker(ISmtpReceiverService smtpReceiver)
         {
             _smtpReceiver = smtpReceiver;
         }

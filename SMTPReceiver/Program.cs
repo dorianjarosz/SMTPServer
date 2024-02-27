@@ -1,13 +1,32 @@
+using Microsoft.EntityFrameworkCore;
 using SMTPReceiver;
+using SMTPReceiver.Data;
+using SMTPReceiver.Repositories;
 using SMTPReceiver.Services;
 
-IHost host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices(services =>
+namespace OneSource
+{
+    public class Program
     {
-        services.AddHostedService<Worker>();
-        services.AddSingleton<ISmtpReceiver, SmtpReceiver>();
-    })
-    .UseWindowsService()
-    .Build();
+        public static void Main(string[] args)
+        {
+            CreateHostBuilder(args).Build().Run();
+        }
 
-host.Run();
+        public static IHostBuilder CreateHostBuilder(string[] args) =>
+        Host.CreateDefaultBuilder(args)
+            .ConfigureServices((context, services) =>
+            {
+                services.AddHostedService<Worker>();
+                services.AddSingleton<ISmtpReceiverService, SmtpReceiverService>();
+                services.AddSingleton<IOneSourceRepository, OneSourceRepository>();
+                services.AddDbContext<OneSourceContext>(options =>
+                {
+                    options.UseSqlServer(
+                        context.Configuration.GetConnectionString("OneSourceContextConnection")
+                    );
+                });
+            })
+            .UseConsoleLifetime();
+    }
+}

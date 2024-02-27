@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace SMTPReceiver.Services
 {
-    public interface ISmtpReceiver
+    public interface ISmtpReceiverService
     {
         Task<TcpListener> Start();
 
