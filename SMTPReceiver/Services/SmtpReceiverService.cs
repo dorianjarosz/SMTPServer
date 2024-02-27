@@ -1,7 +1,6 @@
 ﻿using MimeKit;
 using SMTPReceiver.Data.Entities;
 using SMTPReceiver.Repositories;
-using System.Data;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -12,11 +11,11 @@ namespace SMTPReceiver.Services
     {
         private readonly int port = 7777;
         private readonly IOneSourceRepository _oneSourceRepository;
-        private readonly ILogger<Worker> _logger;
+        private readonly ILogger<SmtpReceiverService> _logger;
         private readonly IConfiguration _configuration;
         Dictionary<string, string> toList = new Dictionary<string, string>();
 
-        public SmtpReceiverService(IOneSourceRepository oneSourceRepository,ILogger<Worker> logger, IConfiguration configuration)
+        public SmtpReceiverService(IOneSourceRepository oneSourceRepository, ILogger<SmtpReceiverService> logger, IConfiguration configuration)
         {
             _oneSourceRepository = oneSourceRepository;
             _logger = logger;
@@ -67,7 +66,7 @@ namespace SMTPReceiver.Services
 
                         _logger.LogInformation("Saved mail to '{0}'.", fileName);
 
-                        string toEmailSingle="";
+                        string toEmailSingle = "";
 
                         MailboxAddress from = (MailboxAddress)message.From[0];
                         string fromEmail = from.Address;
@@ -101,14 +100,14 @@ namespace SMTPReceiver.Services
                                 {
                                     var smtpLog = new SMTPLog
                                     {
-                                        EmlPath= Path.GetFileName(fileName).Replace("'", "''"),
-                                        From= fromEmail,
-                                        To= toEmailSingle,
-                                        Subject= message.Subject.Replace("'", "''"),
-                                        Mode= "SMTP IN - CRASH",
-                                        RuleName=ex.Message,
-                                        IsEnabled=false
-                                    }; 
+                                        EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                                        From = fromEmail,
+                                        To = toEmailSingle,
+                                        Subject = message.Subject.Replace("'", "''"),
+                                        Mode = "SMTP IN - CRASH",
+                                        RuleName = ex.Message,
+                                        IsEnabled = false
+                                    };
 
                                     await _oneSourceRepository.AddAsync(smtpLog);
                                     throw;
@@ -233,7 +232,22 @@ namespace SMTPReceiver.Services
                                 IsEnabled = false
                             };
 
-                            await _oneSourceRepository.AddAsync(smtpLog);                            
+                            await _oneSourceRepository.AddAsync(smtpLog);
+
+                            var mappings = await _oneSourceRepository.GetAllAsync<MappingSMTPReceiver>();
+
+                            foreach (var mapping in mappings)
+                            {
+                                var fullcontent = new System.Net.Http.MultipartFormDataContent();
+                                var pairs = new List<KeyValuePair<string, string>>
+                        {
+                            new KeyValuePair<string, string>("MessageContent", contentEncoded),
+                            new KeyValuePair<string, string>("fromEmail", fromEmail),
+                            new KeyValuePair<string, string>("toEmail", toEmailAux),
+                            new KeyValuePair<string, string>("subject", message.Subject),
+                            new KeyValuePair<string, string>("originalEML", Path.GetFileName(fileName))
+                        };
+                            }
                         }
 
                         _logger.LogInformation("Saved emails for senders successfully.");

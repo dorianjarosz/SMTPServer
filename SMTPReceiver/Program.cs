@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SMTPReceiver;
 using SMTPReceiver.Data;
 using SMTPReceiver.Repositories;
@@ -17,16 +18,20 @@ namespace OneSource
         Host.CreateDefaultBuilder(args)
             .ConfigureServices((context, services) =>
             {
-                services.AddHostedService<Worker>();
                 services.AddSingleton<ISmtpReceiverService, SmtpReceiverService>();
                 services.AddSingleton<IOneSourceRepository, OneSourceRepository>();
-                services.AddDbContext<OneSourceContext>(options =>
-                {
-                    options.UseSqlServer(
-                        context.Configuration.GetConnectionString("OneSourceContextConnection")
-                    );
-                });
+
+                var connectionString = context.Configuration.GetConnectionString("OneSourceContextConnection");
+
+                var optionsBuilder = new DbContextOptionsBuilder<OneSourceContext>();
+
+                optionsBuilder.UseSqlServer(connectionString);
+
+                services.AddSingleton(db => new OneSourceContext(optionsBuilder.Options));
+
+                services.AddHostedService<Worker>();
             })
+            .UseWindowsService()
             .UseConsoleLifetime();
     }
 }

@@ -7,6 +7,8 @@ namespace SMTPReceiver.Data
     {
         public DbSet<SMTPLog> SMTPLog { get; set; }
 
+        public DbSet<MappingSMTPReceiver> MappingSMTPReceiver { get; set; }
+
         public OneSourceContext(DbContextOptions<OneSourceContext> options)
             : base(options)
         {

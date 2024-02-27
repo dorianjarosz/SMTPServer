@@ -1,4 +1,5 @@
-﻿using SMTPReceiver.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using SMTPReceiver.Data;
 
 namespace SMTPReceiver.Repositories
 {
@@ -15,6 +16,11 @@ namespace SMTPReceiver.Repositories
         {
             _oneSourceContext.Set<TEntity>().Add(entity);
             await _oneSourceContext.SaveChangesAsync();
+        }
+
+        public async Task<IReadOnlyList<TEntity>> GetAllAsync<TEntity>() where TEntity : class
+        {
+            return await _oneSourceContext.Set<TEntity>().ToListAsync();
         }
     }
 }
