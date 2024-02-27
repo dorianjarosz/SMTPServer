@@ -74,6 +74,8 @@ namespace SMTPReceiver.Services
 
                         List<string> toEmail = new List<string>();
 
+                        _logger.LogInformation("Saving emails for recipients.");
+
                         foreach (InternetAddress mailAux in message.To)
                         {
                             if (mailAux.GetType() == new GroupAddress("test").GetType())
@@ -141,6 +143,10 @@ namespace SMTPReceiver.Services
                                 }
                             }
                         }
+
+                        _logger.LogInformation("Saved emails for recipients successfully.");
+
+                        _logger.LogInformation("Saving emails for CC recipients.");
 
                         foreach (InternetAddress iaAux in message.Cc)
                         {
@@ -210,6 +216,10 @@ namespace SMTPReceiver.Services
                             }
                         }
 
+                        _logger.LogInformation("Saved emails for CC recipients successfully.");
+
+                        _logger.LogInformation("Saving emails for senders.");
+
                         foreach (string toEmailAux in toEmail)
                         {
                             var smtpLog = new SMTPLog
@@ -225,6 +235,8 @@ namespace SMTPReceiver.Services
 
                             await _oneSourceRepository.AddAsync(smtpLog);                            
                         }
+
+                        _logger.LogInformation("Saved emails for senders successfully.");
                     }
 
                     string response = "250 OK";
