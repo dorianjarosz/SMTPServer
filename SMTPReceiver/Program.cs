@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using SMTPReceiver;
 using SMTPReceiver.Data;
 using SMTPReceiver.Repositories;

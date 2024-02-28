@@ -28,7 +28,7 @@ namespace SMTPReceiver.Data.Entities
         public string ContainsString { get; set; }
 
         [Column("discardInternal")]
-        public string DiscardInternal { get; set; }
+        public bool? DiscardInternal { get; set; }
 
         [Column("isEnabled")]
         public bool IsEnabled { get; set; }
