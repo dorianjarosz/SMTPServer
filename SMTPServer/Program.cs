@@ -1,10 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using SMTPReceiver;
-using SMTPReceiver.Data;
-using SMTPReceiver.Repositories;
-using SMTPReceiver.Services;
+using SMTPServer.Data;
+using SMTPServer.Repositories;
+using SMTPServer.Services;
 
-namespace OneSource
+namespace SMTPServer
 {
     public class Program
     {
@@ -17,7 +16,7 @@ namespace OneSource
         Host.CreateDefaultBuilder(args)
             .ConfigureServices((context, services) =>
             {
-                services.AddSingleton<ISmtpReceiverService, SmtpReceiverService>();
+                services.AddSingleton<ISMTPServerService, SMTPServerService>();
                 services.AddSingleton<IOneSourceRepository, OneSourceRepository>();
 
                 var connectionString = context.Configuration.GetConnectionString("OneSourceContextConnection");

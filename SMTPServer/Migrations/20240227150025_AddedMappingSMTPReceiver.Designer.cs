@@ -4,11 +4,11 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using SMTPReceiver.Data;
+using SMTPServer.Data;
 
 #nullable disable
 
-namespace SMTPReceiver.Migrations
+namespace SMTPServer.Migrations
 {
     [DbContext(typeof(OneSourceContext))]
     [Migration("20240227150025_AddedMappingSMTPReceiver")]
@@ -24,7 +24,7 @@ namespace SMTPReceiver.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("SMTPReceiver.Data.Entities.MappingSMTPReceiver", b =>
+            modelBuilder.Entity("SMTPServer.Data.Entities.MappingSMTPReceiver", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -91,7 +91,7 @@ namespace SMTPReceiver.Migrations
                     b.ToTable("sys_MappingSMTPReceiver");
                 });
 
-            modelBuilder.Entity("SMTPReceiver.Data.Entities.SMTPLog", b =>
+            modelBuilder.Entity("SMTPServer.Data.Entities.SMTPLog", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()

@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace SMTPReceiver.Migrations
+namespace SMTPServer.Migrations
 {
     /// <inheritdoc />
     public partial class AddedSMTPLogTable : Migration

@@ -1,12 +1,12 @@
-using SMTPReceiver.Services;
+using SMTPServer.Services;
 
-namespace SMTPReceiver
+namespace SMTPServer
 {
     public class Worker : BackgroundService
     {
-        private readonly ISmtpReceiverService _smtpReceiver;
+        private readonly ISMTPServerService _smtpReceiver;
 
-        public Worker(ISmtpReceiverService smtpReceiver)
+        public Worker(ISMTPServerService smtpReceiver)
         {
             _smtpReceiver = smtpReceiver;
         }

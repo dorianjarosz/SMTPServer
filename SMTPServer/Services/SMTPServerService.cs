@@ -1,20 +1,20 @@
 ﻿using MimeKit;
-using SMTPReceiver.Data.Entities;
-using SMTPReceiver.Repositories;
+using SMTPServer.Data.Entities;
+using SMTPServer.Repositories;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-namespace SMTPReceiver.Services
+namespace SMTPServer.Services
 {
-    public class SmtpReceiverService : ISmtpReceiverService
+    public class SMTPServerService : ISMTPServerService
     {
         private readonly int port = 7777;
         private readonly IOneSourceRepository _oneSourceRepository;
-        private readonly ILogger<SmtpReceiverService> _logger;
+        private readonly ILogger<SMTPServerService> _logger;
         private readonly IConfiguration _configuration;
 
-        public SmtpReceiverService(IOneSourceRepository oneSourceRepository, ILogger<SmtpReceiverService> logger, IConfiguration configuration)
+        public SMTPServerService(IOneSourceRepository oneSourceRepository, ILogger<SMTPServerService> logger, IConfiguration configuration)
         {
             _oneSourceRepository = oneSourceRepository;
             _logger = logger;
@@ -27,7 +27,7 @@ namespace SMTPReceiver.Services
 
             listener.Start();
 
-            _logger.LogInformation($"SMTP Receiver is listening on port {port}");
+            _logger.LogInformation($"SMTP Server is listening on port {port}");
 
             return Task.FromResult(listener);
         }

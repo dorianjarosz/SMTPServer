@@ -1,4 +1,4 @@
-﻿namespace SMTPReceiver.Repositories
+﻿namespace SMTPServer.Repositories
 {
     public interface IOneSourceRepository
     {

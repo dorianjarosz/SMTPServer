@@ -1,9 +1,9 @@
 ﻿using System.Net.Sockets;
 using System.Threading.Tasks;
 
-namespace SMTPReceiver.Services
+namespace SMTPServer.Services
 {
-    public interface ISmtpReceiverService
+    public interface ISMTPServerService
     {
         Task<TcpListener> Start();
 

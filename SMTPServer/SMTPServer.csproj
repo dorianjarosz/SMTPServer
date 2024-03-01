@@ -4,7 +4,7 @@
     <TargetFramework>net7.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>dotnet-SMTPReceiver-23a63aee-4d86-4f2f-bbf6-7ec62092faae</UserSecretsId>
+    <UserSecretsId>dotnet-SMTPServer-23a63aee-4d86-4f2f-bbf6-7ec62092faae</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

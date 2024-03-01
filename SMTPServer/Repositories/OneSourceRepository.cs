@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using SMTPReceiver.Data;
+using SMTPServer.Data;
 
-namespace SMTPReceiver.Repositories
+namespace SMTPServer.Repositories
 {
     public class OneSourceRepository : IOneSourceRepository
     {
