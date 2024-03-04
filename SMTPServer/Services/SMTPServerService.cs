@@ -1,6 +1,7 @@
 ﻿using MimeKit;
 using SMTPServer.Repositories;
 using System.Net;
+using System.Net.Mail;
 using System.Net.Sockets;
 using System.Text;
 
@@ -22,381 +23,351 @@ namespace SMTPServer.Services
 
         public async Task HandleClientAsync(CancellationToken cancellationToken)
         {
-            var listener = new TcpListener(IPAddress.Parse("127.0.0.1"), port);
-
             try
             {
-                listener.Start();
-
-                _logger.LogInformation($"SMTP Server is listening on port {port}.");
-
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    TcpClient tcpClient = await listener.AcceptTcpClientAsync();
-
-                    using (NetworkStream stream = tcpClient.GetStream())
-                    {
-                        string totCount = "";
-                        string emailContent;
-
-                        _logger.LogInformation("Received email!");
+                
 
                         //while ((emailContent = await reader.ReadToEndAsync()) != null)
                         //{
                         //    var message = MimeMessage.Load(new MemoryStream(Encoding.UTF8.GetBytes(emailContent)));
 
-                        //    totCount = message.To.Count().ToString();
+                //    totCount = message.To.Count().ToString();
 
-                        //    string createdTimestamp = GetHeaderValue(message.Headers, "CreatedTimestamp");
+                //    string createdTimestamp = GetHeaderValue(message.Headers, "CreatedTimestamp");
 
-                        //    var createdTimestampDate = DateTime.Parse(createdTimestamp);
+                //    var createdTimestampDate = DateTime.Parse(createdTimestamp);
 
-                        //    string mailDir = _configuration["mailDirectory"];
+                //    string mailDir = _configuration["mailDirectory"];
 
-                        //    string fileName = GetFileNameFromSessionInfo(mailDir, createdTimestampDate);
+                //    string fileName = GetFileNameFromSessionInfo(mailDir, createdTimestampDate);
 
-                        //    _logger.LogInformation("Start receiving mail: {0}", fileName);
+                //    _logger.LogInformation("Start receiving mail: {0}", fileName);
 
-                        //    await message.WriteToAsync(fileName);
+                //    await message.WriteToAsync(fileName);
 
-                        //    _logger.LogInformation("Saved mail to '{0}'.", fileName);
+                //    _logger.LogInformation("Saved mail to '{0}'.", fileName);
 
-                        //    string toEmailSingle = "";
+                //    string toEmailSingle = "";
 
-                        //    MailboxAddress from = (MailboxAddress)message.From[0];
-                        //    string fromEmail = from.Address;
+                //    MailboxAddress from = (MailboxAddress)message.From[0];
+                //    string fromEmail = from.Address;
 
-                        //    List<string> toEmail = new List<string>();
+                //    List<string> toEmail = new List<string>();
 
-                        //    _logger.LogInformation("Saving emails for recipients.");
+                //    _logger.LogInformation("Saving emails for recipients.");
 
-                        //    foreach (InternetAddress mailAux in message.To)
-                        //    {
-                        //        if (mailAux.GetType() == new GroupAddress("test").GetType())
-                        //        {
-                        //            GroupAddress grp = (GroupAddress)mailAux;
-                        //            try
-                        //            {
-                        //                if (grp != null && grp.Members != null && grp.Members.Count > 0)
-                        //                {
-                        //                    foreach (MailboxAddress mlAux in grp.Members)
-                        //                    {
-                        //                        MailboxAddress frm = mlAux;
-                        //                        toEmailSingle = frm.Address; //For use in exception if it's necessary
-                        //                        if (!toEmail.Contains(frm.Address))
-                        //                        {
-                        //                            toEmail.Add(frm.Address);
-                        //                        }
+                //    foreach (InternetAddress mailAux in message.To)
+                //    {
+                //        if (mailAux.GetType() == new GroupAddress("test").GetType())
+                //        {
+                //            GroupAddress grp = (GroupAddress)mailAux;
+                //            try
+                //            {
+                //                if (grp != null && grp.Members != null && grp.Members.Count > 0)
+                //                {
+                //                    foreach (MailboxAddress mlAux in grp.Members)
+                //                    {
+                //                        MailboxAddress frm = mlAux;
+                //                        toEmailSingle = frm.Address; //For use in exception if it's necessary
+                //                        if (!toEmail.Contains(frm.Address))
+                //                        {
+                //                            toEmail.Add(frm.Address);
+                //                        }
 
-                        //                    }
-                        //                }
-                        //            }
-                        //            catch (Exception ex)
-                        //            {
-                        //                var smtpLog = new SMTPLog
-                        //                {
-                        //                    EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
-                        //                    From = fromEmail,
-                        //                    To = toEmailSingle,
-                        //                    Subject = message.Subject.Replace("'", "''"),
-                        //                    Mode = "SMTP IN - CRASH",
-                        //                    RuleName = ex.Message,
-                        //                    IsEnabled = false
-                        //                };
+                //                    }
+                //                }
+                //            }
+                //            catch (Exception ex)
+                //            {
+                //                var smtpLog = new SMTPLog
+                //                {
+                //                    EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                //                    From = fromEmail,
+                //                    To = toEmailSingle,
+                //                    Subject = message.Subject.Replace("'", "''"),
+                //                    Mode = "SMTP IN - CRASH",
+                //                    RuleName = ex.Message,
+                //                    IsEnabled = false
+                //                };
 
-                        //                await _oneSourceRepository.AddAsync(smtpLog);
-                        //                throw;
-                        //            }
-                        //        }
-                        //        else
-                        //        {
-                        //            try
-                        //            {
-                        //                MailboxAddress frm = (MailboxAddress)mailAux;
-                        //                toEmailSingle = frm.Address; //For use in exception if it's necessary
-                        //                if (!toEmail.Contains(frm.Address))
-                        //                {
-                        //                    toEmail.Add(frm.Address);
-                        //                }
-                        //            }
-                        //            catch (Exception ex)
-                        //            {
-                        //                var smtpLog = new SMTPLog
-                        //                {
-                        //                    EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
-                        //                    From = fromEmail,
-                        //                    To = toEmailSingle,
-                        //                    Subject = message.Subject.Replace("'", "''"),
-                        //                    Mode = "SMTP IN - CRASH",
-                        //                    RuleName = ex.Message,
-                        //                    IsEnabled = false
-                        //                };
+                //                await _oneSourceRepository.AddAsync(smtpLog);
+                //                throw;
+                //            }
+                //        }
+                //        else
+                //        {
+                //            try
+                //            {
+                //                MailboxAddress frm = (MailboxAddress)mailAux;
+                //                toEmailSingle = frm.Address; //For use in exception if it's necessary
+                //                if (!toEmail.Contains(frm.Address))
+                //                {
+                //                    toEmail.Add(frm.Address);
+                //                }
+                //            }
+                //            catch (Exception ex)
+                //            {
+                //                var smtpLog = new SMTPLog
+                //                {
+                //                    EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                //                    From = fromEmail,
+                //                    To = toEmailSingle,
+                //                    Subject = message.Subject.Replace("'", "''"),
+                //                    Mode = "SMTP IN - CRASH",
+                //                    RuleName = ex.Message,
+                //                    IsEnabled = false
+                //                };
 
-                        //                await _oneSourceRepository.AddAsync(smtpLog);
-                        //                throw;
-                        //            }
-                        //        }
-                        //    }
+                //                await _oneSourceRepository.AddAsync(smtpLog);
+                //                throw;
+                //            }
+                //        }
+                //    }
 
-                        //    _logger.LogInformation("Saved emails for recipients successfully.");
+                //    _logger.LogInformation("Saved emails for recipients successfully.");
 
-                        //    _logger.LogInformation("Saving emails for CC recipients.");
+                //    _logger.LogInformation("Saving emails for CC recipients.");
 
-                        //    foreach (InternetAddress iaAux in message.Cc)
-                        //    {
-                        //        if (iaAux.GetType() == new GroupAddress("test").GetType())
-                        //        {
-                        //            GroupAddress grp = (GroupAddress)iaAux;
-                        //            try
-                        //            {
-                        //                if (grp != null && grp.Members != null && grp.Members.Count > 0)
-                        //                {
-                        //                    foreach (MailboxAddress mlAux in grp.Members)
-                        //                    {
-                        //                        MailboxAddress frm = mlAux;
-                        //                        toEmailSingle = frm.Address; //For use in exception if it's necessary
-                        //                        if (!toEmail.Contains(frm.Address))
-                        //                        {
-                        //                            toEmail.Add(frm.Address);
-                        //                        }
+                //    foreach (InternetAddress iaAux in message.Cc)
+                //    {
+                //        if (iaAux.GetType() == new GroupAddress("test").GetType())
+                //        {
+                //            GroupAddress grp = (GroupAddress)iaAux;
+                //            try
+                //            {
+                //                if (grp != null && grp.Members != null && grp.Members.Count > 0)
+                //                {
+                //                    foreach (MailboxAddress mlAux in grp.Members)
+                //                    {
+                //                        MailboxAddress frm = mlAux;
+                //                        toEmailSingle = frm.Address; //For use in exception if it's necessary
+                //                        if (!toEmail.Contains(frm.Address))
+                //                        {
+                //                            toEmail.Add(frm.Address);
+                //                        }
 
-                        //                    }
-                        //                }
-                        //            }
-                        //            catch (Exception ex)
-                        //            {
-                        //                var smtpLog = new SMTPLog
-                        //                {
-                        //                    EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
-                        //                    From = fromEmail,
-                        //                    To = toEmailSingle,
-                        //                    Subject = message.Subject.Replace("'", "''"),
-                        //                    Mode = "SMTP IN - CRASH",
-                        //                    RuleName = ex.Message,
-                        //                    IsEnabled = false
-                        //                };
+                //                    }
+                //                }
+                //            }
+                //            catch (Exception ex)
+                //            {
+                //                var smtpLog = new SMTPLog
+                //                {
+                //                    EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                //                    From = fromEmail,
+                //                    To = toEmailSingle,
+                //                    Subject = message.Subject.Replace("'", "''"),
+                //                    Mode = "SMTP IN - CRASH",
+                //                    RuleName = ex.Message,
+                //                    IsEnabled = false
+                //                };
 
-                        //                await _oneSourceRepository.AddAsync(smtpLog);
-                        //                throw;
-                        //            }
-                        //        }
-                        //        else
-                        //        {
-                        //            try
-                        //            {
-                        //                MailboxAddress frm = (MailboxAddress)iaAux;
-                        //                toEmailSingle = frm.Address; //For use in exception if it's necessary
-                        //                if (!toEmail.Contains(frm.Address))
-                        //                {
-                        //                    toEmail.Add(frm.Address);
-                        //                }
-                        //            }
-                        //            catch (Exception ex)
-                        //            {
-                        //                var smtpLog = new SMTPLog
-                        //                {
-                        //                    EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
-                        //                    From = fromEmail.Replace("'", "''"),
-                        //                    To = toEmailSingle.Replace("'", "''"),
-                        //                    Subject = message.Subject.Replace("'", "''"),
-                        //                    Mode = "SMTP IN - CRASH",
-                        //                    RuleName = ex.Message,
-                        //                    IsEnabled = false
-                        //                };
+                //                await _oneSourceRepository.AddAsync(smtpLog);
+                //                throw;
+                //            }
+                //        }
+                //        else
+                //        {
+                //            try
+                //            {
+                //                MailboxAddress frm = (MailboxAddress)iaAux;
+                //                toEmailSingle = frm.Address; //For use in exception if it's necessary
+                //                if (!toEmail.Contains(frm.Address))
+                //                {
+                //                    toEmail.Add(frm.Address);
+                //                }
+                //            }
+                //            catch (Exception ex)
+                //            {
+                //                var smtpLog = new SMTPLog
+                //                {
+                //                    EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                //                    From = fromEmail.Replace("'", "''"),
+                //                    To = toEmailSingle.Replace("'", "''"),
+                //                    Subject = message.Subject.Replace("'", "''"),
+                //                    Mode = "SMTP IN - CRASH",
+                //                    RuleName = ex.Message,
+                //                    IsEnabled = false
+                //                };
 
-                        //                await _oneSourceRepository.AddAsync(smtpLog);
-                        //                throw;
-                        //            }
-                        //        }
-                        //    }
+                //                await _oneSourceRepository.AddAsync(smtpLog);
+                //                throw;
+                //            }
+                //        }
+                //    }
 
-                        //    _logger.LogInformation("Saved emails for CC recipients successfully.");
+                //    _logger.LogInformation("Saved emails for CC recipients successfully.");
 
-                        //    _logger.LogInformation("Saving emails for senders.");
+                //    _logger.LogInformation("Saving emails for senders.");
 
-                        //    string htmlBody = message.HtmlBody;
+                //    string htmlBody = message.HtmlBody;
 
-                        //    if (htmlBody == null)
-                        //    {
-                        //        htmlBody = message.TextBody;
-                        //    }
+                //    if (htmlBody == null)
+                //    {
+                //        htmlBody = message.TextBody;
+                //    }
 
-                        //    if (toEmail.Count() == 0)
-                        //    {
-                        //        toEmail.Add("");
-                        //    }
+                //    if (toEmail.Count() == 0)
+                //    {
+                //        toEmail.Add("");
+                //    }
 
-                        //    byte[] buff = await File.ReadAllBytesAsync(fileName);
-                        //    string contentEncoded = Convert.ToBase64String(buff);
+                //    byte[] buff = await File.ReadAllBytesAsync(fileName);
+                //    string contentEncoded = Convert.ToBase64String(buff);
 
-                        //    foreach (string toEmailAux in toEmail)
-                        //    {
-                        //        var smtpLog = new SMTPLog
-                        //        {
-                        //            EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
-                        //            From = fromEmail.Replace("'", "''"),
-                        //            To = toEmailAux.Replace("'", "''"),
-                        //            Subject = message.Subject.Replace("'", "''"),
-                        //            Mode = "SMTP RECEIVED - PRE",
-                        //            RuleName = "",
-                        //            IsEnabled = false
-                        //        };
+                //    foreach (string toEmailAux in toEmail)
+                //    {
+                //        var smtpLog = new SMTPLog
+                //        {
+                //            EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                //            From = fromEmail.Replace("'", "''"),
+                //            To = toEmailAux.Replace("'", "''"),
+                //            Subject = message.Subject.Replace("'", "''"),
+                //            Mode = "SMTP RECEIVED - PRE",
+                //            RuleName = "",
+                //            IsEnabled = false
+                //        };
 
-                        //        await _oneSourceRepository.AddAsync(smtpLog);
+                //        await _oneSourceRepository.AddAsync(smtpLog);
 
-                        //        var mappings = await _oneSourceRepository.GetAllAsync<MappingSMTPReceiver>();
+                //        var mappings = await _oneSourceRepository.GetAllAsync<MappingSMTPReceiver>();
 
-                        //        foreach (var mapping in mappings)
-                        //        {
-                        //            var fullcontent = new MultipartFormDataContent();
-                        //            var pairs = new List<KeyValuePair<string, string>>
-                        //            {
-                        //                new KeyValuePair<string, string>("MessageContent", contentEncoded),
-                        //                new KeyValuePair<string, string>("fromEmail", fromEmail),
-                        //                new KeyValuePair<string, string>("toEmail", toEmailAux),
-                        //                new KeyValuePair<string, string>("subject", message.Subject),
-                        //                new KeyValuePair<string, string>("originalEML", Path.GetFileName(fileName)),
-                        //                new KeyValuePair<string, string>("MenuEntryName", mapping.MenuEntryName),
-                        //                new KeyValuePair<string, string>("section", mapping.Section),
-                        //                new KeyValuePair<string, string>("category", mapping.Category),
-                        //                new KeyValuePair<string, string>("dataAccess", mapping.DataAccess)
-                        //            };
+                //        foreach (var mapping in mappings)
+                //        {
+                //            var fullcontent = new MultipartFormDataContent();
+                //            var pairs = new List<KeyValuePair<string, string>>
+                //            {
+                //                new KeyValuePair<string, string>("MessageContent", contentEncoded),
+                //                new KeyValuePair<string, string>("fromEmail", fromEmail),
+                //                new KeyValuePair<string, string>("toEmail", toEmailAux),
+                //                new KeyValuePair<string, string>("subject", message.Subject),
+                //                new KeyValuePair<string, string>("originalEML", Path.GetFileName(fileName)),
+                //                new KeyValuePair<string, string>("MenuEntryName", mapping.MenuEntryName),
+                //                new KeyValuePair<string, string>("section", mapping.Section),
+                //                new KeyValuePair<string, string>("category", mapping.Category),
+                //                new KeyValuePair<string, string>("dataAccess", mapping.DataAccess)
+                //            };
 
-                        //            foreach (var keyValuePair in pairs)
-                        //            {
-                        //                if (keyValuePair.Key != null && keyValuePair.Value != null)
-                        //                {
-                        //                    fullcontent.Add(new StringContent(keyValuePair.Value), keyValuePair.Key);
-                        //                }
-                        //            }
+                //            foreach (var keyValuePair in pairs)
+                //            {
+                //                if (keyValuePair.Key != null && keyValuePair.Value != null)
+                //                {
+                //                    fullcontent.Add(new StringContent(keyValuePair.Value), keyValuePair.Key);
+                //                }
+                //            }
 
-                        //            string destInstance = "";
+                //            string destInstance = "";
 
-                        //            //if toEmail condition match
-                        //            if (!string.IsNullOrWhiteSpace(mapping.ToEmail) && mapping.ToEmail == toEmailAux)
-                        //            {
-                        //                destInstance = mapping.DestinationInstance;
+                //            //if toEmail condition match
+                //            if (!string.IsNullOrWhiteSpace(mapping.ToEmail) && mapping.ToEmail == toEmailAux)
+                //            {
+                //                destInstance = mapping.DestinationInstance;
 
-                        //                //if containsString condition match
-                        //                if (!string.IsNullOrEmpty(mapping.ContainsString) && htmlBody != null && htmlBody.ToLower().Contains(mapping.ContainsString))
-                        //                {
-                        //                    destInstance = mapping.DestinationInstance;
-                        //                }
-                        //                else if (mapping.ContainsString != null && mapping.ContainsString == "")
-                        //                {
-                        //                    destInstance = mapping.DestinationInstance;
-                        //                }
-                        //                else if (mapping.ContainsString == null)
-                        //                {
-                        //                    destInstance = mapping.DestinationInstance;
-                        //                }
-                        //                else
-                        //                {
-                        //                    destInstance = "";
-                        //                }
+                //                //if containsString condition match
+                //                if (!string.IsNullOrEmpty(mapping.ContainsString) && htmlBody != null && htmlBody.ToLower().Contains(mapping.ContainsString))
+                //                {
+                //                    destInstance = mapping.DestinationInstance;
+                //                }
+                //                else if (mapping.ContainsString != null && mapping.ContainsString == "")
+                //                {
+                //                    destInstance = mapping.DestinationInstance;
+                //                }
+                //                else if (mapping.ContainsString == null)
+                //                {
+                //                    destInstance = mapping.DestinationInstance;
+                //                }
+                //                else
+                //                {
+                //                    destInstance = "";
+                //                }
 
-                        //                if (mapping.DiscardInternal != null && mapping.DiscardInternal == true && htmlBody != null && (htmlBody.Contains("Owning GBU") || htmlBody.Contains("Leading GBU")))
-                        //                {
-                        //                    destInstance = "";
-                        //                }
+                //                if (mapping.DiscardInternal != null && mapping.DiscardInternal == true && htmlBody != null && (htmlBody.Contains("Owning GBU") || htmlBody.Contains("Leading GBU")))
+                //                {
+                //                    destInstance = "";
+                //                }
 
-                        //            }
+                //            }
 
-                        //            if (!string.IsNullOrWhiteSpace(destInstance))
-                        //            {
-                        //                //Indicate the process mode (MIP1, BODYSAVER, FILESAVER, BACKUPS, ...)
+                //            if (!string.IsNullOrWhiteSpace(destInstance))
+                //            {
+                //                //Indicate the process mode (MIP1, BODYSAVER, FILESAVER, BACKUPS, ...)
 
-                        //                try
-                        //                {
-                        //                    bool isEnabled = mapping.IsEnabled;
+                //                try
+                //                {
+                //                    bool isEnabled = mapping.IsEnabled;
 
 
-                        //                    if (isEnabled)
-                        //                    {
-                        //                        var smtpLog2 = new SMTPLog
-                        //                        {
-                        //                            EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
-                        //                            From = fromEmail.Replace("'", "''"),
-                        //                            To = toEmailAux.Replace("'", "''"),
-                        //                            Subject = message.Subject.Replace("'", "''"),
-                        //                            Mode = mapping.Mode,
-                        //                            RuleName = mapping.Id + ": " + mapping.Description.Replace("'", "''") + " > " + mapping.DestinationInstance.Replace("'", "''"),
-                        //                            IsEnabled = true
-                        //                        };
+                //                    if (isEnabled)
+                //                    {
+                //                        var smtpLog2 = new SMTPLog
+                //                        {
+                //                            EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                //                            From = fromEmail.Replace("'", "''"),
+                //                            To = toEmailAux.Replace("'", "''"),
+                //                            Subject = message.Subject.Replace("'", "''"),
+                //                            Mode = mapping.Mode,
+                //                            RuleName = mapping.Id + ": " + mapping.Description.Replace("'", "''") + " > " + mapping.DestinationInstance.Replace("'", "''"),
+                //                            IsEnabled = true
+                //                        };
 
-                        //                        await _oneSourceRepository.AddAsync(smtpLog2);
+                //                        await _oneSourceRepository.AddAsync(smtpLog2);
 
-                        //                        var client = new HttpClient();
+                //                        var client = new HttpClient();
 
-                        //                        string url = "https://" + destInstance + "/Admin/SMTPReceiver.aspx?lng=EN&mode=" + mapping.Mode;
-                        //                        if (destInstance.Trim() == "52.211.50.245") //dev without https
-                        //                        {
-                        //                            url = "http://" + destInstance + "/Admin/SMTPReceiver.aspx?lng=EN&mode=" + mapping.Mode;
-                        //                        }
+                //                        string url = "https://" + destInstance + "/Admin/SMTPReceiver.aspx?lng=EN&mode=" + mapping.Mode;
+                //                        if (destInstance.Trim() == "52.211.50.245") //dev without https
+                //                        {
+                //                            url = "http://" + destInstance + "/Admin/SMTPReceiver.aspx?lng=EN&mode=" + mapping.Mode;
+                //                        }
 
-                        //                        HttpResponseMessage remoteServerResponse = null;
+                //                        HttpResponseMessage remoteServerResponse = null;
 
-                        //                        try
-                        //                        {
+                //                        try
+                //                        {
 
-                        //                            remoteServerResponse = client.PostAsync(url, fullcontent).Result;
-                        //                            if (remoteServerResponse.IsSuccessStatusCode)
-                        //                            {
-                        //                                string result = remoteServerResponse.Content.ToString();
-                        //                            }
-                        //                        }
-                        //                        catch (Exception ex)
-                        //                        {
-                        //                            _logger.LogError(ex, $"An error occured. Sender email: {fromEmail}, recipient email: {toEmailAux}, email file: {Path.GetFileName(fileName)}");
-                        //                        }
-                        //                    }
-                        //                    else
-                        //                    {
-                        //                        var smtpLog3 = new SMTPLog
-                        //                        {
-                        //                            EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
-                        //                            From = fromEmail.Replace("'", "''"),
-                        //                            To = toEmailAux.Replace("'", "''"),
-                        //                            Subject = message.Subject.Replace("'", "''"),
-                        //                            Mode = mapping.Mode,
-                        //                            RuleName = "*** " + mapping.Id + ": " + mapping.Description.Replace("'", "''") + " > " + mapping.DestinationInstance.Replace("'", "''"),
-                        //                            IsEnabled = false
-                        //                        };
+                //                            remoteServerResponse = client.PostAsync(url, fullcontent).Result;
+                //                            if (remoteServerResponse.IsSuccessStatusCode)
+                //                            {
+                //                                string result = remoteServerResponse.Content.ToString();
+                //                            }
+                //                        }
+                //                        catch (Exception ex)
+                //                        {
+                //                            _logger.LogError(ex, $"An error occured. Sender email: {fromEmail}, recipient email: {toEmailAux}, email file: {Path.GetFileName(fileName)}");
+                //                        }
+                //                    }
+                //                    else
+                //                    {
+                //                        var smtpLog3 = new SMTPLog
+                //                        {
+                //                            EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                //                            From = fromEmail.Replace("'", "''"),
+                //                            To = toEmailAux.Replace("'", "''"),
+                //                            Subject = message.Subject.Replace("'", "''"),
+                //                            Mode = mapping.Mode,
+                //                            RuleName = "*** " + mapping.Id + ": " + mapping.Description.Replace("'", "''") + " > " + mapping.DestinationInstance.Replace("'", "''"),
+                //                            IsEnabled = false
+                //                        };
 
-                        //                        await _oneSourceRepository.AddAsync(smtpLog3);
-                        //                    }
-                        //                }
-                        //                catch (Exception ex)
-                        //                {
-                        //                    _logger.LogError(ex, $"An error occured. Sender email: {fromEmail}, recipient email: {toEmailAux}, email file: {Path.GetFileName(fileName)}");
-                        //                    throw;
-                        //                }
+                //                        await _oneSourceRepository.AddAsync(smtpLog3);
+                //                    }
+                //                }
+                //                catch (Exception ex)
+                //                {
+                //                    _logger.LogError(ex, $"An error occured. Sender email: {fromEmail}, recipient email: {toEmailAux}, email file: {Path.GetFileName(fileName)}");
+                //                    throw;
+                //                }
 
-                        //            }
-                        //        }
-                        //    }
+                //            }
+                //        }
+                //    }
 
-                        //    _logger.LogInformation("Saved emails for senders successfully.");
-                        //}
-
-                        byte[] buffer = new byte[1024];
-                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
-                        string request = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                        string response = "250 OK";
-                        byte[] responseBuffer = Encoding.ASCII.GetBytes(response);
-                        await stream.WriteAsync(responseBuffer, 0, responseBuffer.Length);
-
-                        tcpClient.Close();
-                    }
-                }
+                //    _logger.LogInformation("Saved emails for senders successfully.");
+                //}
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "SMTP Server: Operation failed.");
-            }
-            finally
-            {
-                listener.Stop();
             }
         }
 
