@@ -1,9 +1,9 @@
-﻿using MimeKit;
+﻿using MailKit;
+using MailKit.Net.Imap;
+using MailKit.Search;
+using MailKit.Security;
+using MimeKit;
 using SMTPServer.Repositories;
-using System.Net;
-using System.Net.Mail;
-using System.Net.Sockets;
-using System.Text;
 
 namespace SMTPServer.Services
 {
@@ -25,11 +25,30 @@ namespace SMTPServer.Services
         {
             try
             {
-                
+                using (var client = new ImapClient())
+                {
+                    client.Connect("atosonesource.com", 25, SecureSocketOptions.Auto);
 
-                        //while ((emailContent = await reader.ReadToEndAsync()) != null)
-                        //{
-                        //    var message = MimeMessage.Load(new MemoryStream(Encoding.UTF8.GetBytes(emailContent)));
+                    //client.Authenticate("username", "password");
+
+                    client.Inbox.Open(FolderAccess.ReadOnly);
+
+                    var uids = client.Inbox.Search(SearchQuery.YoungerThan(60*60*2));
+
+                    foreach (var uid in uids)
+                    {
+                        var message = client.Inbox.GetMessage(uid);
+
+                        // write the message to a file
+                        _logger.LogInformation(string.Format("{0}.eml", uid));
+                    }
+
+                    client.Disconnect(true);
+                }
+
+                //while ((emailContent = await reader.ReadToEndAsync()) != null)
+                //{
+                //    var message = MimeMessage.Load(new MemoryStream(Encoding.UTF8.GetBytes(emailContent)));
 
                 //    totCount = message.To.Count().ToString();
 
