@@ -2,6 +2,7 @@
 using MimeKit;
 using SMTPServer.Data.Entities;
 using SMTPServer.Repositories;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -44,7 +45,7 @@ namespace SMTPServer.Services
                 {
                     TcpClient client = await listener.AcceptTcpClientAsync();
 
-                    await HandleEmailMessage(client);
+                    await EnqueueEmailMessage(client);
                 }
             }
             catch (Exception ex)
@@ -59,7 +60,7 @@ namespace SMTPServer.Services
             }
         }
 
-        private async Task HandleEmailMessage(TcpClient client)
+        private async Task EnqueueEmailMessage(TcpClient client)
         {
             _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
 
@@ -67,184 +68,11 @@ namespace SMTPServer.Services
             {
                 using (var reader = new StreamReader(stream, Encoding.ASCII))
                 {
-                    string totCount = "";
                     string emailContent;
 
                     while ((emailContent = await reader.ReadToEndAsync()) != null)
                     {
                         var message = MimeMessage.Load(new MemoryStream(Encoding.UTF8.GetBytes(emailContent)));
-
-                        totCount = message.To.Count().ToString();
-                        string createdTimestamp = GetHeaderValue(message.Headers, "CreatedTimestamp");
-                        var createdTimestampDate = DateTime.Parse(createdTimestamp);
-                        string mailDir = _configuration["mailDirectory"];
-                        string fileName = GetFileNameFromSessionInfo(mailDir, createdTimestampDate);
-                        _logger.LogInformation("Start receiving mail: {0}", fileName);
-                        await message.WriteToAsync(fileName);
-                        _logger.LogInformation("Saved mail to '{0}'.", fileName);
-                        string toEmailSingle = "";
-                        MailboxAddress from = (MailboxAddress)message.From[0];
-                        string fromEmail = from.Address;
-
-                        List<string> toEmail = new List<string>();
-
-                        _logger.LogInformation("Saving emails for recipients.");
-
-                        foreach (InternetAddress mailAux in message.To)
-                        {
-                            if (mailAux.GetType() == new GroupAddress("test").GetType())
-                            {
-                                GroupAddress grp = (GroupAddress)mailAux;
-                                try
-                                {
-                                    if (grp != null && grp.Members != null && grp.Members.Count > 0)
-                                    {
-                                        foreach (MailboxAddress mlAux in grp.Members)
-                                        {
-                                            MailboxAddress frm = mlAux;
-                                            toEmailSingle = frm.Address; //For use in exception if it's necessary
-                                            if (!toEmail.Contains(frm.Address))
-                                            {
-                                                toEmail.Add(frm.Address);
-                                            }
-                                        }
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    var smtpLog = new SMTPLog
-                                    {
-                                        EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
-                                        From = fromEmail,
-                                        To = toEmailSingle,
-                                        Subject = message.Subject.Replace("'", "''"),
-                                        Mode = "SMTP IN - CRASH",
-                                        RuleName = ex.Message,
-                                        IsEnabled = false
-                                    };
-                                    await _oneSourceRepository.AddAsync(smtpLog);
-                                    throw;
-                                }
-                            }
-                            else
-                            {
-                                try
-                                {
-                                    MailboxAddress frm = (MailboxAddress)mailAux;
-                                    toEmailSingle = frm.Address; //For use in exception if it's necessary
-                                    if (!toEmail.Contains(frm.Address))
-                                    {
-                                        toEmail.Add(frm.Address);
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    var smtpLog = new SMTPLog
-                                    {
-                                        EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
-                                        From = fromEmail,
-                                        To = toEmailSingle,
-                                        Subject = message.Subject.Replace("'", "''"),
-                                        Mode = "SMTP IN - CRASH",
-                                        RuleName = ex.Message,
-                                        IsEnabled = false
-                                    };
-                                    await _oneSourceRepository.AddAsync(smtpLog);
-                                    throw;
-                                }
-                            }
-                        }
-
-                        _logger.LogInformation("Saved emails for recipients successfully.");
-
-                        _logger.LogInformation("Saving emails for CC recipients.");
-
-                        foreach (InternetAddress iaAux in message.Cc)
-                        {
-                            if (iaAux.GetType() == new GroupAddress("test").GetType())
-                            {
-                                GroupAddress grp = (GroupAddress)iaAux;
-                                try
-                                {
-                                    if (grp != null && grp.Members != null && grp.Members.Count > 0)
-                                    {
-                                        foreach (MailboxAddress mlAux in grp.Members)
-                                        {
-                                            MailboxAddress frm = mlAux;
-                                            toEmailSingle = frm.Address; //For use in exception if it's necessary
-                                            if (!toEmail.Contains(frm.Address))
-                                            {
-                                                toEmail.Add(frm.Address);
-                                            }
-                                        }
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    var smtpLog = new SMTPLog
-                                    {
-                                        EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
-                                        From = fromEmail,
-                                        To = toEmailSingle,
-                                        Subject = message.Subject.Replace("'", "''"),
-                                        Mode = "SMTP IN - CRASH",
-                                        RuleName = ex.Message,
-                                        IsEnabled = false
-                                    };
-                                    await _oneSourceRepository.AddAsync(smtpLog);
-                                    throw;
-                                }
-                            }
-                            else
-                            {
-                                try
-                                {
-                                    MailboxAddress frm = (MailboxAddress)iaAux;
-                                    toEmailSingle = frm.Address; //For use in exception if it's necessary
-                                    if (!toEmail.Contains(frm.Address))
-                                    {
-                                        toEmail.Add(frm.Address);
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    var smtpLog = new SMTPLog
-                                    {
-                                        EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
-                                        From = fromEmail.Replace("'", "''"),
-                                        To = toEmailSingle.Replace("'", "''"),
-                                        Subject = message.Subject.Replace("'", "''"),
-                                        Mode = "SMTP IN - CRASH",
-                                        RuleName = ex.Message,
-                                        IsEnabled = false
-                                    };
-                                    await _oneSourceRepository.AddAsync(smtpLog);
-                                    throw;
-                                }
-                            }
-                        }
-
-                        _logger.LogInformation("Saved emails for CC recipients successfully.");
-
-                        _logger.LogInformation("Saving emails for senders.");
-
-                        foreach (string toEmailAux in toEmail)
-                        {
-                            var smtpLog = new SMTPLog
-                            {
-                                EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
-                                From = fromEmail.Replace("'", "''"),
-                                To = toEmailAux.Replace("'", "''"),
-                                Subject = message.Subject.Replace("'", "''"),
-                                Mode = "SMTP RECEIVED - PRE",
-                                RuleName = "",
-                                IsEnabled = false
-                            };
-
-                            await _oneSourceRepository.AddAsync(smtpLog);
-                        }
-
-                        _logger.LogInformation("Saved emails for senders successfully.");
 
                         emailMessageQueue.Enqueue(message);
                     }
@@ -256,20 +84,352 @@ namespace SMTPServer.Services
             _logger.LogInformation("Enqueuing the email message ended.");
         }
 
-        public Task HandleEmailMessages(CancellationToken cancellationToken)
+        public async Task HandleEmailMessages(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             _logger.LogInformation("Started handling email received messages.");
 
-            foreach (var emailMessage in emailMessageQueue)
+            while (emailMessageQueue.TryPeek(out var emailMessage))
             {
+                var message = emailMessage;
+
+                string createdTimestamp = GetHeaderValue(message.Headers, "CreatedTimestamp");
+
+                var createdTimestampDate = DateTime.Parse(createdTimestamp);
+
+                string mailDir = _configuration["mailDirectory"];
+
+                string fileName = GetFileNameFromSessionInfo(mailDir, createdTimestampDate);
+
+                _logger.LogInformation("Start receiving mail: {0}", fileName);
+
+                await message.WriteToAsync(fileName);
+
+                _logger.LogInformation("Saved mail to '{0}'.", fileName);
+
+                string toEmailSingle = "";
+
+                MailboxAddress from = (MailboxAddress)message.From[0];
+                string fromEmail = from.Address;
+
+                List<string> toEmail = new List<string>();
+
+                _logger.LogInformation("Saving emails for recipients.");
+
+                foreach (InternetAddress mailAux in message.To)
+                {
+                    if (mailAux.GetType() == new GroupAddress("test").GetType())
+                    {
+                        GroupAddress grp = (GroupAddress)mailAux;
+                        try
+                        {
+                            if (grp != null && grp.Members != null && grp.Members.Count > 0)
+                            {
+                                foreach (MailboxAddress mlAux in grp.Members)
+                                {
+                                    MailboxAddress frm = mlAux;
+                                    toEmailSingle = frm.Address; //For use in exception if it's necessary
+                                    if (!toEmail.Contains(frm.Address))
+                                    {
+                                        toEmail.Add(frm.Address);
+                                    }
+
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            var smtpLog = new SMTPLog
+                            {
+                                EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                                From = fromEmail,
+                                To = toEmailSingle,
+                                Subject = message.Subject.Replace("'", "''"),
+                                Mode = "SMTP IN - CRASH",
+                                RuleName = ex.Message,
+                                IsEnabled = false
+                            };
+
+                            await _oneSourceRepository.AddAsync(smtpLog);
+                            throw;
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            MailboxAddress frm = (MailboxAddress)mailAux;
+                            toEmailSingle = frm.Address; //For use in exception if it's necessary
+                            if (!toEmail.Contains(frm.Address))
+                            {
+                                toEmail.Add(frm.Address);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            var smtpLog = new SMTPLog
+                            {
+                                EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                                From = fromEmail,
+                                To = toEmailSingle,
+                                Subject = message.Subject.Replace("'", "''"),
+                                Mode = "SMTP IN - CRASH",
+                                RuleName = ex.Message,
+                                IsEnabled = false
+                            };
+
+                            await _oneSourceRepository.AddAsync(smtpLog);
+                            throw;
+                        }
+                    }
+                }
+
+                _logger.LogInformation("Saved emails for recipients successfully.");
+
+                _logger.LogInformation("Saving emails for CC recipients.");
+
+                foreach (InternetAddress iaAux in message.Cc)
+                {
+                    if (iaAux.GetType() == new GroupAddress("test").GetType())
+                    {
+                        GroupAddress grp = (GroupAddress)iaAux;
+                        try
+                        {
+                            if (grp != null && grp.Members != null && grp.Members.Count > 0)
+                            {
+                                foreach (MailboxAddress mlAux in grp.Members)
+                                {
+                                    MailboxAddress frm = mlAux;
+                                    toEmailSingle = frm.Address; //For use in exception if it's necessary
+                                    if (!toEmail.Contains(frm.Address))
+                                    {
+                                        toEmail.Add(frm.Address);
+                                    }
+
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            var smtpLog = new SMTPLog
+                            {
+                                EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                                From = fromEmail,
+                                To = toEmailSingle,
+                                Subject = message.Subject.Replace("'", "''"),
+                                Mode = "SMTP IN - CRASH",
+                                RuleName = ex.Message,
+                                IsEnabled = false
+                            };
+
+                            await _oneSourceRepository.AddAsync(smtpLog);
+                            throw;
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            MailboxAddress frm = (MailboxAddress)iaAux;
+                            toEmailSingle = frm.Address; //For use in exception if it's necessary
+                            if (!toEmail.Contains(frm.Address))
+                            {
+                                toEmail.Add(frm.Address);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            var smtpLog = new SMTPLog
+                            {
+                                EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                                From = fromEmail.Replace("'", "''"),
+                                To = toEmailSingle.Replace("'", "''"),
+                                Subject = message.Subject.Replace("'", "''"),
+                                Mode = "SMTP IN - CRASH",
+                                RuleName = ex.Message,
+                                IsEnabled = false
+                            };
+
+                            await _oneSourceRepository.AddAsync(smtpLog);
+                            throw;
+                        }
+                    }
+                }
+
+                _logger.LogInformation("Saved emails for CC recipients successfully.");
+
+                _logger.LogInformation("Saving emails for senders.");
+
+                string htmlBody = message.HtmlBody;
+
+                if (htmlBody == null)
+                {
+                    htmlBody = message.TextBody;
+                }
+
+                if (toEmail.Count() == 0)
+                {
+                    toEmail.Add("");
+                }
+
+                byte[] buff = await File.ReadAllBytesAsync(fileName);
+                string contentEncoded = Convert.ToBase64String(buff);
+
+                foreach (string toEmailAux in toEmail)
+                {
+                    var smtpLog = new SMTPLog
+                    {
+                        EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                        From = fromEmail.Replace("'", "''"),
+                        To = toEmailAux.Replace("'", "''"),
+                        Subject = message.Subject.Replace("'", "''"),
+                        Mode = "SMTP RECEIVED - PRE",
+                        RuleName = "",
+                        IsEnabled = false
+                    };
+
+                    await _oneSourceRepository.AddAsync(smtpLog);
+
+                    var mappings = await _oneSourceRepository.GetAllAsync<MappingSMTPReceiver>();
+
+                    foreach (var mapping in mappings)
+                    {
+                        var fullcontent = new MultipartFormDataContent();
+                        var pairs = new List<KeyValuePair<string, string>>
+                                    {
+                                        new KeyValuePair<string, string>("fromEmail", fromEmail),
+                                        new KeyValuePair<string, string>("toEmail", toEmailAux),
+                                        new KeyValuePair<string, string>("subject", message.Subject),
+                                        new KeyValuePair<string, string>("originalEML", Path.GetFileName(fileName)),
+                                        new KeyValuePair<string, string>("menuEntryName", mapping.MenuEntryName),
+                                        new KeyValuePair<string, string>("section", mapping.Section),
+                                        new KeyValuePair<string, string>("category", mapping.Category),
+                                        new KeyValuePair<string, string>("dataAccess", mapping.DataAccess),
+                                        new KeyValuePair<string, string>("messageContent", contentEncoded)
+                                    };
+
+                        foreach (var keyValuePair in pairs)
+                        {
+                            if (keyValuePair.Key != null && keyValuePair.Value != null)
+                            {
+                                fullcontent.Add(new StringContent(keyValuePair.Value), keyValuePair.Key);
+                            }
+                        }
+
+                        string destInstance = "";
+
+                        //if toEmail condition match
+                        if (!string.IsNullOrWhiteSpace(mapping.ToEmail) && mapping.ToEmail == toEmailAux)
+                        {
+                            destInstance = mapping.DestinationInstance;
+
+                            //if containsString condition match
+                            if (!string.IsNullOrEmpty(mapping.ContainsString) && htmlBody != null && htmlBody.ToLower().Contains(mapping.ContainsString))
+                            {
+                                destInstance = mapping.DestinationInstance;
+                            }
+                            else if (mapping.ContainsString != null && mapping.ContainsString == "")
+                            {
+                                destInstance = mapping.DestinationInstance;
+                            }
+                            else if (mapping.ContainsString == null)
+                            {
+                                destInstance = mapping.DestinationInstance;
+                            }
+                            else
+                            {
+                                destInstance = "";
+                            }
+
+                            if (mapping.DiscardInternal != null && mapping.DiscardInternal == true && htmlBody != null && (htmlBody.Contains("Owning GBU") || htmlBody.Contains("Leading GBU")))
+                            {
+                                destInstance = "";
+                            }
+
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(destInstance))
+                        {
+                            //Indicate the process mode (MIP1, BODYSAVER, FILESAVER, BACKUPS, ...)
+
+                            try
+                            {
+                                bool isEnabled = mapping.IsEnabled;
+
+
+                                if (isEnabled)
+                                {
+                                    var smtpLog2 = new SMTPLog
+                                    {
+                                        EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                                        From = fromEmail.Replace("'", "''"),
+                                        To = toEmailAux.Replace("'", "''"),
+                                        Subject = message.Subject.Replace("'", "''"),
+                                        Mode = mapping.Mode,
+                                        RuleName = mapping.Id + ": " + mapping.Description.Replace("'", "''") + " > " + mapping.DestinationInstance.Replace("'", "''"),
+                                        IsEnabled = true
+                                    };
+
+                                    await _oneSourceRepository.AddAsync(smtpLog2);
+
+                                    var httpClient = new HttpClient();
+
+                                    string url = destInstance + "/api/SMTPReceiver?mode=" + mapping.Mode;
+
+                                    if (destInstance.Trim() == "52.211.50.245") //dev without https
+                                    {
+                                        url = destInstance + "/api/SMTPReceiver?mode=" + mapping.Mode;
+                                    }
+
+                                    HttpResponseMessage remoteServerResponse = null;
+
+                                    try
+                                    {
+
+                                        remoteServerResponse = httpClient.PostAsync(url, fullcontent).Result;
+                                        if (remoteServerResponse.IsSuccessStatusCode)
+                                        {
+                                            string result = remoteServerResponse.Content.ToString();
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(ex, $"An error occured. Sender email: {fromEmail}, recipient email: {toEmailAux}, email file: {Path.GetFileName(fileName)}");
+                                    }
+                                }
+                                else
+                                {
+                                    var smtpLog3 = new SMTPLog
+                                    {
+                                        EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                                        From = fromEmail.Replace("'", "''"),
+                                        To = toEmailAux.Replace("'", "''"),
+                                        Subject = message.Subject.Replace("'", "''"),
+                                        Mode = mapping.Mode,
+                                        RuleName = "*** " + mapping.Id + ": " + mapping.Description.Replace("'", "''") + " > " + mapping.DestinationInstance.Replace("'", "''"),
+                                        IsEnabled = false
+                                    };
+
+                                    await _oneSourceRepository.AddAsync(smtpLog3);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, $"An error occured. Sender email: {fromEmail}, recipient email: {toEmailAux}, email file: {Path.GetFileName(fileName)}");
+                                throw;
+                            }
+
+                        }
+                    }
+
+                    emailMessageQueue.Dequeue();
+                }
+
                 _logger.LogInformation("Handling the following email message: " + emailMessage.Subject);
             }
 
             _logger.LogInformation("Ended handling email received messages.");
-
-            return Task.CompletedTask;
         }
 
         private string GetHeaderValue(IEnumerable<Header> headers, string headerName)
