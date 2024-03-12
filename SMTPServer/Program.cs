@@ -1,4 +1,6 @@
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SMTPServer.Data;
 using SMTPServer.Repositories;
 using SMTPServer.Services;
@@ -28,6 +30,17 @@ namespace SMTPServer
                 services.AddSingleton(db => new OneSourceContext(optionsBuilder.Options));
 
                 services.AddHostedService<Worker>();
+
+                services.AddHangfire(configuration => configuration
+                        .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                        .UseSimpleAssemblyNameTypeSerializer()
+                        .UseRecommendedSerializerSettings()
+                        .UseSqlServerStorage(connectionString));
+
+                services.AddHangfireServer(options =>
+                {
+                    options.SchedulePollingInterval = TimeSpan.FromMilliseconds(5000);
+                });
             })
             .UseWindowsService()
             .UseConsoleLifetime();
