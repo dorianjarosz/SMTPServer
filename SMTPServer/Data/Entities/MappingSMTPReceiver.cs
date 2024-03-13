@@ -38,5 +38,8 @@ namespace SMTPServer.Data.Entities
 
         [Column("mode")]
         public string Mode { get; set; }
+
+        [Column("lastUpdate")]
+        public DateTime? LastUpdate { get; set; }
     }
 }

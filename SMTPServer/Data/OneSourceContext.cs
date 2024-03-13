@@ -13,5 +13,18 @@ namespace SMTPServer.Data
             : base(options)
         {
         }
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+
+            builder.Entity<SMTPLog>()
+               .Property(b => b.LastUpdate)
+               .HasDefaultValueSql("getdate()");
+
+            builder.Entity<MappingSMTPReceiver>()
+               .Property(b => b.LastUpdate)
+               .HasDefaultValueSql("getdate()");
+        }
     }
 }

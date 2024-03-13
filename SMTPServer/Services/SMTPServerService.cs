@@ -34,9 +34,15 @@ namespace SMTPServer.Services
             try
             {
                 RecurringJob.AddOrUpdate(
-                    "SMTPServer",
+                    "HandleEmailMessages",
                     () => HandleEmailMessages(CancellationToken.None),
                     "*/5 * * * * *"
+                );
+
+                RecurringJob.AddOrUpdate(
+                    "DeleteOldEmailsAndLogs",
+                    () => DeleteOldEmailsAndLogs(CancellationToken.None),
+                    "0 * * * *"
                 );
 
                 listener.Start();
@@ -120,7 +126,9 @@ namespace SMTPServer.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                _logger.LogInformation("Started handling email received messages.");
+                string mailDir = _configuration["MailDirectory"];
+
+                _logger.LogInformation("HandleEmailMessages job: Started handling email received messages.");
 
                 while (emailMessageQueue.TryPeek(out var emailMessage))
                 {
@@ -132,15 +140,13 @@ namespace SMTPServer.Services
 
                     var createdTimestampDate = !string.IsNullOrWhiteSpace(createdTimestamp) ? DateTime.Parse(createdTimestamp) : DateTime.Now;
 
-                    string mailDir = _configuration["mailDirectory"];
-
                     string fileName = GetFileNameFromSessionInfo(mailDir, createdTimestampDate);
 
-                    _logger.LogInformation("Start receiving mail: {0}", fileName);
+                    _logger.LogInformation("HandleEmailMessages job: Start receiving mail: {0}", fileName);
 
                     await message.WriteToAsync(fileName);
 
-                    _logger.LogInformation("Saved mail to '{0}'.", fileName);
+                    _logger.LogInformation("HandleEmailMessages job: Saved mail to '{0}'.", fileName);
 
                     string toEmailSingle = "";
 
@@ -149,7 +155,7 @@ namespace SMTPServer.Services
 
                     List<string> toEmail = new List<string>();
 
-                    _logger.LogInformation("Saving emails for recipients.");
+                    _logger.LogInformation("HandleEmailMessages job: Saving emails for recipients.");
 
                     foreach (InternetAddress mailAux in message.To)
                     {
@@ -219,9 +225,9 @@ namespace SMTPServer.Services
                         }
                     }
 
-                    _logger.LogInformation("Saved emails for recipients successfully.");
+                    _logger.LogInformation("HandleEmailMessages job: Saved emails for recipients successfully.");
 
-                    _logger.LogInformation("Saving emails for CC recipients.");
+                    _logger.LogInformation("HandleEmailMessages job: Saving emails for CC recipients.");
 
                     foreach (InternetAddress iaAux in message.Cc)
                     {
@@ -291,9 +297,9 @@ namespace SMTPServer.Services
                         }
                     }
 
-                    _logger.LogInformation("Saved emails for CC recipients successfully.");
+                    _logger.LogInformation("HandleEmailMessages job: Saved emails for CC recipients successfully.");
 
-                    _logger.LogInformation("Saving emails for senders.");
+                    _logger.LogInformation("HandleEmailMessages job: Saving emails for senders.");
 
                     string htmlBody = message.HtmlBody;
 
@@ -420,7 +426,7 @@ namespace SMTPServer.Services
                                         }
                                         catch (Exception ex)
                                         {
-                                            _logger.LogError(ex, $"An error occured. Sender email: {fromEmail}, recipient email: {toEmailAux}, email file: {Path.GetFileName(fileName)}");
+                                            _logger.LogError(ex, $"HandleEmailMessages job: An error occured. Sender email: {fromEmail}, recipient email: {toEmailAux}, email file: {Path.GetFileName(fileName)}");
                                         }
                                     }
                                     else
@@ -441,7 +447,7 @@ namespace SMTPServer.Services
                                 }
                                 catch (Exception ex)
                                 {
-                                    _logger.LogError(ex, $"An error occured. Sender email: {fromEmail}, recipient email: {toEmailAux}, email file: {Path.GetFileName(fileName)}");
+                                    _logger.LogError(ex, $"HandleEmailMessages job: An error occured. Sender email: {fromEmail}, recipient email: {toEmailAux}, email file: {Path.GetFileName(fileName)}");
                                     throw;
                                 }
 
@@ -449,16 +455,56 @@ namespace SMTPServer.Services
                         }
                     }
 
-                    _logger.LogInformation("Handling the following email message: " + emailMessage.Subject);
+                    _logger.LogInformation("HandleEmailMessages job: Handling the following email message: " + emailMessage.Subject);
                 }
 
-                _logger.LogInformation("Ended handling email received messages.");
+                _logger.LogInformation("HandleEmailMessages job: Ended handling email received messages.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Service error occured");
+                _logger.LogError(ex, "HandleEmailMessages job: Service error occured");
             }
             
+        }
+
+        public async Task DeleteOldEmailsAndLogs(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("DeleteOldEmailsAndLogs job: Started deleting old emails and logs.");
+
+            string mailDir = _configuration["MailDirectory"];
+
+            string timeForPersistingDataInMonthsValue = _configuration["DataRetentionPolicy:TimeForPersistingDataInMonths"];
+
+            int timeForPersistingDataInMonths = int.Parse(timeForPersistingDataInMonthsValue);
+
+            var latestDateToPersistData = DateTime.Now.AddMonths(-timeForPersistingDataInMonths);
+
+            var logsToDeltete = await _oneSourceRepository.GetAsync<SMTPLog>(l => l.LastUpdate < latestDateToPersistData);
+
+            _logger.LogInformation("DeleteOldEmailsAndLogs job: Started deleting old SMTP logs.");
+
+            if (logsToDeltete.Count > 0)
+            {
+                await _oneSourceRepository.RemoveRangeAsync(logsToDeltete);
+            }
+
+            _logger.LogInformation("DeleteOldEmailsAndLogs job: Finished deleting old SMTP logs.");
+
+            _logger.LogInformation("DeleteOldEmailsAndLogs job: Started deleting old EML email files.");
+
+            string[] files = Directory.GetFiles(mailDir);
+
+            foreach (string file in files)
+            {
+                FileInfo fi = new FileInfo(file);
+
+                if (fi.CreationTime < latestDateToPersistData)
+                {
+                    fi.Delete();
+                }
+            }
+
+            _logger.LogInformation("DeleteOldEmailsAndLogs job: Finished deleting old EML email files.");
         }
 
         private string GetHeaderValue(IEnumerable<Header> headers, string headerName)

@@ -27,5 +27,8 @@ namespace SMTPServer.Data.Entities
 
         [Column("isEnabled")]
         public bool IsEnabled { get; set; }
+
+        [Column("lastUpdate")]
+        public DateTime? LastUpdate { get; set; }
     }
 }
