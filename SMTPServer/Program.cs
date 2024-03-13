@@ -1,6 +1,5 @@
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using SMTPServer.Data;
 using SMTPServer.Repositories;
 using SMTPServer.Services;

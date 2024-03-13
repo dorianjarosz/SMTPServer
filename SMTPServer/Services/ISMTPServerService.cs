@@ -1,6 +1,4 @@
-﻿using System.Net.Sockets;
-
-namespace SMTPServer.Services
+﻿namespace SMTPServer.Services
 {
     public interface ISMTPServerService
     {
