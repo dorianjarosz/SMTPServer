@@ -42,7 +42,7 @@ namespace SMTPServer.Services
                 RecurringJob.AddOrUpdate(
                     "DeleteOldEmailsAndLogs",
                     () => DeleteOldEmailsAndLogs(CancellationToken.None),
-                    "0 * * * *"
+                    _configuration["cronExpression"]
                 );
 
                 listener.Start();
