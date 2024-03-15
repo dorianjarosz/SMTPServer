@@ -5,6 +5,7 @@ namespace SMTPServer.Data.Entities
     [Table("sys_SMTPLog")]
     public class SMTPLog
     {
+        [Column("id")]
         public int Id { get; set; }
 
         [Column("emlPath")]

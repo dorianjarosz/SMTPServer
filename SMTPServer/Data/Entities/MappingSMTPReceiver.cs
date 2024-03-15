@@ -5,6 +5,7 @@ namespace SMTPServer.Data.Entities
     [Table("sys_MappingSMTPReceiver")]
     public class MappingSMTPReceiver
     {
+        [Column("id")]
         public int Id { get; set; }
 
         public string MenuEntryName { get; set; }
