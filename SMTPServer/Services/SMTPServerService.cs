@@ -132,7 +132,7 @@ namespace SMTPServer.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                string mailDir = _configuration["MailDirectory"];
+                string mailDir = _configuration["SMTPReceiver:ReceivedEmailsDirectory"];
 
                 _logger.LogInformation("HandleEmailMessages job: Started handling email received messages.");
 
@@ -343,6 +343,7 @@ namespace SMTPServer.Services
                         {
                             var json = new
                             {
+                                mode=mapping.Mode,
                                 fromEmail = fromEmail,
                                 toEmail = toEmailAux,
                                 subject = message.Subject,
@@ -477,7 +478,7 @@ namespace SMTPServer.Services
         {
             _logger.LogInformation("DeleteOldEmailsAndLogs job: Started deleting old emails and logs.");
 
-            string mailDir = _configuration["MailDirectory"];
+            string mailDir = _configuration["SMTPReceiver:ReceivedEmailsDirectory"];
 
             string timeForPersistingDataInMonthsValue = _configuration["DataRetentionPolicy:TimeForPersistingDataInMonths"];
 
