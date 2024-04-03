@@ -16,15 +16,13 @@ namespace SMTPServer.Services
         private readonly IOneSourceRepository _oneSourceRepository;
         private readonly ILogger<SMTPServerService> _logger;
         private readonly IConfiguration _configuration;
-        private readonly IHostEnvironment _hostEnvironment;
         private static Queue<MimeMessage> emailMessageQueue = new Queue<MimeMessage>();
 
-        public SMTPServerService(IOneSourceRepository oneSourceRepository, ILogger<SMTPServerService> logger, IConfiguration configuration, IHostEnvironment hostEnvironment)
+        public SMTPServerService(IOneSourceRepository oneSourceRepository, ILogger<SMTPServerService> logger, IConfiguration configuration)
         {
             _oneSourceRepository = oneSourceRepository;
             _logger = logger;
             _configuration = configuration;
-            _hostEnvironment = hostEnvironment;
         }
 
         public async Task HandleClientAsync(CancellationToken cancellationToken)
