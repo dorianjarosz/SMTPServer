@@ -11,7 +11,7 @@ namespace SMTPServer.Services
 {
     public class SMTPServerService : ISMTPServerService
     {
-        private bool enququeTestEmailMessages = true;
+        private bool enququeTestEmailMessages = false;
         private readonly int port = 25;
         private readonly IOneSourceRepository _oneSourceRepository;
         private readonly ILogger<SMTPServerService> _logger;
@@ -31,17 +31,25 @@ namespace SMTPServer.Services
 
             try
             {
+                _logger.LogInformation("Starting handling email messages hangfire task.");
+
                 RecurringJob.AddOrUpdate(
                     "HandleEmailMessages",
                     () => HandleEmailMessages(CancellationToken.None),
                     "*/5 * * * * *"
                 );
 
+                _logger.LogInformation("Started handling email messages hangfire task.");
+
+                _logger.LogInformation("Starting deleting old email and logs hangfire task.");
+
                 RecurringJob.AddOrUpdate(
                     "DeleteOldEmailsAndLogs",
                     () => DeleteOldEmailsAndLogs(CancellationToken.None),
                     _configuration["DataRetentionPolicy:DeleteOldLogsAndEmailsCronExpression"]
                 );
+
+                _logger.LogInformation("Started deleting old email and logs hangfire task.");
 
                 listener.Start();
 
@@ -54,6 +62,8 @@ namespace SMTPServer.Services
                         await EnqueueTestEmailMessage();
                     }
 
+                    _logger.LogInformation("Started accepting email on TCP client.");
+
                     TcpClient client = await listener.AcceptTcpClientAsync();
 
                     await EnqueueEmailMessage(client);
@@ -62,6 +72,7 @@ namespace SMTPServer.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "SMTP Server: Operation failed.");
+                throw;
             }
             finally
             {
