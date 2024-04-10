@@ -2,18 +2,19 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using SMTPServer.Data;
+using Microsoft.EntityFrameworkCore.Migrations;
+using OneSourceSMTPServer.Data;
 
 #nullable disable
 
-namespace SMTPServer.Migrations
+namespace OneSourceSMTPServer.Migrations
 {
     [DbContext(typeof(OneSourceContext))]
-    partial class OneSourceContextModelSnapshot : ModelSnapshot
+    [Migration("20240228132332_ChangedDiscardInternalDataTypeToBoolInMappingSMTPReceiver")]
+    partial class ChangedDiscardInternalDataTypeToBoolInMappingSMTPReceiver
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -26,8 +27,7 @@ namespace SMTPServer.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
+                        .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
@@ -64,12 +64,6 @@ namespace SMTPServer.Migrations
                         .HasColumnType("bit")
                         .HasColumnName("isEnabled");
 
-                    b.Property<DateTime?>("LastUpdate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("lastUpdate")
-                        .HasDefaultValueSql("getdate()");
-
                     b.Property<string>("MenuEntryName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -98,8 +92,7 @@ namespace SMTPServer.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
+                        .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
@@ -116,12 +109,6 @@ namespace SMTPServer.Migrations
                     b.Property<bool>("IsEnabled")
                         .HasColumnType("bit")
                         .HasColumnName("isEnabled");
-
-                    b.Property<DateTime?>("LastUpdate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("lastUpdate")
-                        .HasDefaultValueSql("getdate()");
 
                     b.Property<string>("Mode")
                         .IsRequired()

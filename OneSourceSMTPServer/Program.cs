@@ -1,9 +1,9 @@
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
-using SMTPServer;
-using SMTPServer.Data;
-using SMTPServer.Repositories;
-using SMTPServer.Services;
+using OneSourceSMTPServer;
+using OneSourceSMTPServer.Data;
+using OneSourceSMTPServer.Repositories;
+using OneSourceSMTPServer.Services;
 
 IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((context, services) =>

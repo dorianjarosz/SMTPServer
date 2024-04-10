@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace SMTPServer.Migrations
+namespace OneSourceSMTPServer.Migrations
 {
     /// <inheritdoc />
     public partial class AddedMappingSMTPReceiver : Migration

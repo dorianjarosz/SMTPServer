@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 
-namespace SMTPServer.Data.Entities
+namespace OneSourceSMTPServer.Data.Entities
 {
     [Table("sys_MappingSMTPReceiver")]
     public class MappingSMTPReceiver

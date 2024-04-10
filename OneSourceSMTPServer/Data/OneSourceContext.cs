@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using SMTPServer.Data.Entities;
+using OneSourceSMTPServer.Data.Entities;
 
-namespace SMTPServer.Data
+namespace OneSourceSMTPServer.Data
 {
     public class OneSourceContext : DbContext
     {

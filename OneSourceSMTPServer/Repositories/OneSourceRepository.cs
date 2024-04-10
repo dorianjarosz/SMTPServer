@@ -1,8 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
-using SMTPServer.Data;
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
+using OneSourceSMTPServer.Data;
 
-namespace SMTPServer.Repositories
+namespace OneSourceSMTPServer.Repositories
 {
     public class OneSourceRepository : IOneSourceRepository
     {

@@ -2,11 +2,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using SMTPServer.Data;
+using OneSourceSMTPServer.Data;
 
 #nullable disable
 
-namespace SMTPServer.Migrations
+namespace OneSourceSMTPServer.Migrations
 {
     [DbContext(typeof(OneSourceContext))]
     [Migration("20240227115245_AddedSMTPLogTable")]

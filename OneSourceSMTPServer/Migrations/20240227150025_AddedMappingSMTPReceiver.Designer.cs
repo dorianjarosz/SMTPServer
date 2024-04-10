@@ -2,15 +2,15 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using SMTPServer.Data;
+using OneSourceSMTPServer.Data;
 
 #nullable disable
 
-namespace SMTPServer.Migrations
+namespace OneSourceSMTPServer.Migrations
 {
     [DbContext(typeof(OneSourceContext))]
-    [Migration("20240227150456_ChangedIsEnabledDataTypeToBoolInMappingSMTPReceiver")]
-    partial class ChangedIsEnabledDataTypeToBoolInMappingSMTPReceiver
+    [Migration("20240227150025_AddedMappingSMTPReceiver")]
+    partial class AddedMappingSMTPReceiver
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -60,8 +60,9 @@ namespace SMTPServer.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("discardInternal");
 
-                    b.Property<bool>("IsEnabled")
-                        .HasColumnType("bit")
+                    b.Property<string>("IsEnabled")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("isEnabled");
 
                     b.Property<string>("MenuEntryName")

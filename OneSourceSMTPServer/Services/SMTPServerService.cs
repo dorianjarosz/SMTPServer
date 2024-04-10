@@ -1,21 +1,21 @@
-﻿using Hangfire;
-using MailKit;
-using MailKit.Net.Imap;
-using MailKit.Search;
-using MimeKit;
-using Newtonsoft.Json;
-using SMTPServer.Data.Entities;
-using SMTPServer.Repositories;
-using System.Net;
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
 using System.Text;
+using Newtonsoft.Json;
+using MimeKit;
+using Hangfire;
+using SmtpServer;
+using OneSourceSMTPServer.Data.Entities;
+using OneSourceSMTPServer.Repositories;
+using SmtpServer.Storage;
 
-namespace SMTPServer.Services
+namespace OneSourceSMTPServer.Services
 {
     public class SMTPServerService : ISMTPServerService
     {
+        private bool serviceStarted = false;
         private bool enququeTestEmailMessages = false;
         private readonly int port = 25;
+        private readonly string serverName = "127.0.0.1";
         private readonly IOneSourceRepository _oneSourceRepository;
         private readonly ILogger<SMTPServerService> _logger;
         private readonly IConfiguration _configuration;
@@ -30,76 +30,53 @@ namespace SMTPServer.Services
 
         public async Task HandleClientAsync(CancellationToken cancellationToken)
         {
-            //var listener = new TcpListener(IPAddress.Any, port);
-
             try
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    _logger.LogInformation("Starting handling email messages hangfire task.");
-
-                    RecurringJob.AddOrUpdate(
-                        "HandleEmailMessages",
-                        () => HandleEmailMessages(CancellationToken.None),
-                        "*/5 * * * * *"
-                    );
-
-                    _logger.LogInformation("Started handling email messages hangfire task.");
-
-                    _logger.LogInformation("Starting deleting old email and logs hangfire task.");
-
-                    RecurringJob.AddOrUpdate(
-                        "DeleteOldEmailsAndLogs",
-                        () => DeleteOldEmailsAndLogs(CancellationToken.None),
-                        _configuration["DataRetentionPolicy:DeleteOldLogsAndEmailsCronExpression"]
-                    );
-
-                    _logger.LogInformation("Started deleting old email and logs hangfire task.");
-
-                    var client = new ImapClient();
-
-                    client.Connect("test1.atosonesource.com", port, MailKit.Security.SecureSocketOptions.Auto);
-
-                    var inbox = client.Inbox;
-
-                    inbox.Open(FolderAccess.ReadOnly);
-
-                    var messages = inbox.Search(SearchQuery.All);
-
-                    if (messages.Count > 0)
+                    if (!serviceStarted)
                     {
-                        foreach (var messageUniqueId in messages)
-                        {
-                            var message = inbox.GetMessage(messageUniqueId);
+                        _logger.LogInformation("Starting handling email messages hangfire task.");
 
-                            _logger.LogInformation("Received email message: " + message.Subject);
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogInformation("No email messages received.");
+                        RecurringJob.AddOrUpdate(
+                            "HandleEmailMessages",
+                            () => HandleEmailMessages(CancellationToken.None),
+                            "*/5 * * * * *"
+                        );
+
+                        _logger.LogInformation("Started handling email messages hangfire task.");
+
+                        _logger.LogInformation("Starting deleting old email and logs hangfire task.");
+
+                        RecurringJob.AddOrUpdate(
+                            "DeleteOldEmailsAndLogs",
+                            () => DeleteOldEmailsAndLogs(CancellationToken.None),
+                            _configuration["DataRetentionPolicy:DeleteOldLogsAndEmailsCronExpression"]
+                        );
+
+                        _logger.LogInformation("Started deleting old email and logs hangfire task.");
+
+                        var options = new SmtpServerOptionsBuilder()
+                            .ServerName(serverName)
+                            .Endpoint(builder =>
+                                builder
+                                .Port(port, true)
+                                .AllowUnsecureAuthentication(false))
+                                .Build();
+
+                        var serviceProvider = new SmtpServer.ComponentModel.ServiceProvider();
+                        serviceProvider.Add(new SampleMessageStore());
+                        serviceProvider.Add((IMailboxFilter)new SampleMailboxFilter());
+                        serviceProvider.Add((IMailboxFilterFactory)new SampleMailboxFilter());
+
+                        var smtpServer = new SmtpServer.SmtpServer(options, serviceProvider);
+                        await smtpServer.StartAsync(CancellationToken.None);
+
+                        serviceStarted = true;
                     }
 
-                    await Task.Delay(1000);
+                    await Task.Delay(60 * 1000);
                 }
-
-                //listener.Start();
-
-                //_logger.LogInformation("Started TCP listener to listen for incoming emails from atosonesource.com.");
-
-                //while (!cancellationToken.IsCancellationRequested)
-                //{
-                //    if (enququeTestEmailMessages)
-                //    {
-                //        await EnqueueTestEmailMessage();
-                //    }
-
-                //    _logger.LogInformation("Started accepting email on TCP client.");
-
-                //    TcpClient client = await listener.AcceptTcpClientAsync();
-
-                //    await EnqueueEmailMessage(client);
-                //}
             }
             catch (Exception ex)
             {
@@ -108,8 +85,6 @@ namespace SMTPServer.Services
             }
             finally
             {
-                //listener.Stop();
-
                 _logger.LogInformation("Stopped TCP listener for listening for incoming emails from atosonesource.com.");
             }
         }

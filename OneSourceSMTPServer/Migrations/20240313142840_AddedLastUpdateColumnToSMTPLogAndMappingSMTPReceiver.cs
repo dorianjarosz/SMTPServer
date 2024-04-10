@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace SMTPServer.Migrations
+namespace OneSourceSMTPServer.Migrations
 {
     /// <inheritdoc />
     public partial class AddedLastUpdateColumnToSMTPLogAndMappingSMTPReceiver : Migration

@@ -2,19 +2,19 @@
 
 #nullable disable
 
-namespace SMTPServer.Migrations
+namespace OneSourceSMTPServer.Migrations
 {
     /// <inheritdoc />
-    public partial class ChangedIsEnabledDataTypeToBoolInMappingSMTPReceiver : Migration
+    public partial class ChangedDiscardInternalDataTypeToBoolInMappingSMTPReceiver : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AlterColumn<bool>(
-                name: "isEnabled",
+                name: "discardInternal",
                 table: "sys_MappingSMTPReceiver",
                 type: "bit",
-                nullable: false,
+                nullable: true,
                 oldClrType: typeof(string),
                 oldType: "nvarchar(max)");
         }
@@ -23,12 +23,14 @@ namespace SMTPServer.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AlterColumn<string>(
-                name: "isEnabled",
+                name: "discardInternal",
                 table: "sys_MappingSMTPReceiver",
                 type: "nvarchar(max)",
                 nullable: false,
+                defaultValue: "",
                 oldClrType: typeof(bool),
-                oldType: "bit");
+                oldType: "bit",
+                oldNullable: true);
         }
     }
 }

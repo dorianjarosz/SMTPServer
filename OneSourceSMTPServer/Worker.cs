@@ -1,6 +1,6 @@
-using SMTPServer.Services;
+using OneSourceSMTPServer.Services;
 
-namespace SMTPServer
+namespace OneSourceSMTPServer
 {
     public class Worker : BackgroundService
     {

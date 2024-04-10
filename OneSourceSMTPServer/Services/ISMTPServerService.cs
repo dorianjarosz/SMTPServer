@@ -1,4 +1,4 @@
-﻿namespace SMTPServer.Services
+﻿namespace OneSourceSMTPServer.Services
 {
     public interface ISMTPServerService
     {

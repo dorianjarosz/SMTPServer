@@ -1,6 +1,6 @@
 ﻿using System.Linq.Expressions;
 
-namespace SMTPServer.Repositories
+namespace OneSourceSMTPServer.Repositories
 {
     public interface IOneSourceRepository
     {
