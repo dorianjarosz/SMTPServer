@@ -3,10 +3,9 @@ using System.Text;
 using Newtonsoft.Json;
 using MimeKit;
 using Hangfire;
-using SmtpServer;
 using OneSourceSMTPServer.Data.Entities;
 using OneSourceSMTPServer.Repositories;
-using SmtpServer.Storage;
+using System.Net;
 
 namespace OneSourceSMTPServer.Services
 {
@@ -15,7 +14,6 @@ namespace OneSourceSMTPServer.Services
         private bool serviceStarted = false;
         private bool enququeTestEmailMessages = false;
         private readonly int port = 25;
-        private readonly string serverName = "127.0.0.1";
         private readonly IOneSourceRepository _oneSourceRepository;
         private readonly ILogger<SMTPServerService> _logger;
         private readonly IConfiguration _configuration;
@@ -30,6 +28,8 @@ namespace OneSourceSMTPServer.Services
 
         public async Task HandleClientAsync(CancellationToken cancellationToken)
         {
+            var listener = new TcpListener(new IPEndPoint(IPAddress.Any, port));
+
             try
             {
                 while (!cancellationToken.IsCancellationRequested)
@@ -56,21 +56,11 @@ namespace OneSourceSMTPServer.Services
 
                         _logger.LogInformation("Started deleting old email and logs hangfire task.");
 
-                        var options = new SmtpServerOptionsBuilder()
-                            .ServerName(serverName)
-                            .Endpoint(builder =>
-                                builder
-                                .Port(port, true)
-                                .AllowUnsecureAuthentication(false))
-                                .Build();
+                        listener.Start();
 
-                        var serviceProvider = new SmtpServer.ComponentModel.ServiceProvider();
-                        serviceProvider.Add(new SampleMessageStore());
-                        serviceProvider.Add((IMailboxFilter)new SampleMailboxFilter());
-                        serviceProvider.Add((IMailboxFilterFactory)new SampleMailboxFilter());
+                        _logger.LogInformation("Started TCP listener to listen for incoming emails from Test1");
 
-                        var smtpServer = new SmtpServer.SmtpServer(options, serviceProvider);
-                        await smtpServer.StartAsync(CancellationToken.None);
+                        _ = EnqueueEmailMessage(listener);
 
                         serviceStarted = true;
                     }
@@ -113,33 +103,42 @@ namespace OneSourceSMTPServer.Services
             _logger.LogInformation("Enqueuing the test email message ended.");
         }
 
-        private async Task EnqueueEmailMessage(TcpClient client)
+        private async Task EnqueueEmailMessage(TcpListener listener)
         {
-            _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
-
-            using (NetworkStream stream = client.GetStream())
+            while (true)
             {
-                using (var reader = new StreamReader(stream, Encoding.ASCII))
-                {
-                    string emailContent;
+                _logger.LogInformation("Started listening on TCP.");
 
-                    while ((emailContent = await reader.ReadToEndAsync()) != null)
-                    {
-                        MimeMessage message;
+                TcpClient client = await listener.AcceptTcpClientAsync();
 
-                        using (Stream memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(emailContent)))
-                        {
-                            message = MimeMessage.Load(memoryStream);
-                        }
+                _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
 
-                        emailMessageQueue.Enqueue(message);
-                    }
-                }
+                File.Create("C:\\SMTPReceiver\\ReceivedEmails\\hurray.txt");
 
-                client.Close();
+                //using (NetworkStream stream = client.GetStream())
+                //{
+                //    using (var reader = new StreamReader(stream, Encoding.ASCII))
+                //    {
+                //        string emailContent;
+
+                //        while ((emailContent = await reader.ReadToEndAsync()) != null)
+                //        {
+                //            MimeMessage message;
+
+                //            using (Stream memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(emailContent)))
+                //            {
+                //                message = MimeMessage.Load(memoryStream);
+                //            }
+
+                //            emailMessageQueue.Enqueue(message);
+                //        }
+                //    }
+
+                    client.Close();
+                //}
+
+                _logger.LogInformation("Enqueuing the email message ended.");
             }
-
-            _logger.LogInformation("Enqueuing the email message ended.");
         }
 
         public async Task HandleEmailMessages(CancellationToken cancellationToken)
@@ -359,7 +358,7 @@ namespace OneSourceSMTPServer.Services
                         {
                             var json = new
                             {
-                                mode=mapping.Mode,
+                                mode = mapping.Mode,
                                 fromEmail = fromEmail,
                                 toEmail = toEmailAux,
                                 subject = message.Subject,
