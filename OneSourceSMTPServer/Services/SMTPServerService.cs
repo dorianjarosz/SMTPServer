@@ -17,6 +17,7 @@ namespace OneSourceSMTPServer.Services
         private readonly IOneSourceRepository _oneSourceRepository;
         private readonly ILogger<SMTPServerService> _logger;
         private readonly IConfiguration _configuration;
+        private TcpClient client;
         private static Queue<MimeMessage> emailMessageQueue = new Queue<MimeMessage>();
 
         public SMTPServerService(IOneSourceRepository oneSourceRepository, ILogger<SMTPServerService> logger, IConfiguration configuration)
@@ -56,16 +57,18 @@ namespace OneSourceSMTPServer.Services
 
                         _logger.LogInformation("Started deleting old email and logs hangfire task.");
 
-                        listener.Start();
-
                         _logger.LogInformation("Started TCP listener to listen for incoming emails from Test1");
-
-                        _ = EnqueueEmailMessage(listener);
 
                         serviceStarted = true;
                     }
 
-                    await Task.Delay(60 * 1000);
+                    _logger.LogInformation("Started listening on TCP.");
+
+                    listener.Start();
+
+                    TcpClient client = await listener.AcceptTcpClientAsync();
+
+                    await EnqueueEmailMessage(client);
                 }
             }
             catch (Exception ex)
@@ -75,6 +78,7 @@ namespace OneSourceSMTPServer.Services
             }
             finally
             {
+                client?.Close();
                 _logger.LogInformation("Stopped TCP listener for listening for incoming emails from atosonesource.com.");
             }
         }
@@ -103,42 +107,40 @@ namespace OneSourceSMTPServer.Services
             _logger.LogInformation("Enqueuing the test email message ended.");
         }
 
-        private async Task EnqueueEmailMessage(TcpListener listener)
+        private async Task EnqueueEmailMessage(TcpClient client)
         {
-            while (true)
+            _logger.LogInformation("Intercepted an email message. Enqueuing the message started. Hurraaaaaaay!!!");
+
+            using (NetworkStream stream = client.GetStream())
             {
-                _logger.LogInformation("Started listening on TCP.");
+                _logger.LogInformation("using (NetworkStream stream = client.GetStream())");
 
-                TcpClient client = await listener.AcceptTcpClientAsync();
+                using (var reader = new StreamReader(stream, Encoding.ASCII))
+                {
+                    string emailContent;
 
-                _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
+                    _logger.LogInformation("using (var reader = new StreamReader(stream, Encoding.ASCII))");
 
-                File.Create("C:\\SMTPReceiver\\ReceivedEmails\\hurray.txt");
+                    while ((emailContent = await reader.ReadToEndAsync()) != null)
+                    {
+                        MimeMessage message;
 
-                //using (NetworkStream stream = client.GetStream())
-                //{
-                //    using (var reader = new StreamReader(stream, Encoding.ASCII))
-                //    {
-                //        string emailContent;
+                        using (Stream memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(emailContent)))
+                        {
+                            message = MimeMessage.Load(memoryStream);
+                        }
 
-                //        while ((emailContent = await reader.ReadToEndAsync()) != null)
-                //        {
-                //            MimeMessage message;
+                        _logger.LogInformation("Email sender address: "+ message.Sender.Address);
+                        _logger.LogInformation("Email subject: " + message.Subject);
 
-                //            using (Stream memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(emailContent)))
-                //            {
-                //                message = MimeMessage.Load(memoryStream);
-                //            }
+                        //emailMessageQueue.Enqueue(message);
+                    }
+                }
 
-                //            emailMessageQueue.Enqueue(message);
-                //        }
-                //    }
 
-                    client.Close();
-                //}
-
-                _logger.LogInformation("Enqueuing the email message ended.");
             }
+
+            //_logger.LogInformation("Enqueuing the email message ended.");
         }
 
         public async Task HandleEmailMessages(CancellationToken cancellationToken)
