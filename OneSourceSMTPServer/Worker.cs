@@ -15,5 +15,11 @@ namespace OneSourceSMTPServer
         {
             await _smtpReceiver.HandleClientAsync(stoppingToken);
         }
+
+        public override Task StopAsync(CancellationToken cancellationToken)
+        {
+            _smtpReceiver.StopListener();
+            return base.StopAsync(cancellationToken);
+        }
     }
 }

@@ -17,7 +17,7 @@ namespace OneSourceSMTPServer.Services
         private readonly IOneSourceRepository _oneSourceRepository;
         private readonly ILogger<SMTPServerService> _logger;
         private readonly IConfiguration _configuration;
-        private TcpClient client;
+        private TcpListener listener;
         private static Queue<MimeMessage> emailMessageQueue = new Queue<MimeMessage>();
 
         public SMTPServerService(IOneSourceRepository oneSourceRepository, ILogger<SMTPServerService> logger, IConfiguration configuration)
@@ -29,10 +29,14 @@ namespace OneSourceSMTPServer.Services
 
         public async Task HandleClientAsync(CancellationToken cancellationToken)
         {
-            var listener = new TcpListener(new IPEndPoint(IPAddress.Any, port));
-
             try
             {
+                listener = new TcpListener(IPAddress.Any, port);
+
+                _logger.LogInformation("Started TCP listener to listen for incoming emails from Test1");
+
+                listener.Start();
+
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     if (!serviceStarted)
@@ -57,30 +61,30 @@ namespace OneSourceSMTPServer.Services
 
                         _logger.LogInformation("Started deleting old email and logs hangfire task.");
 
-                        _logger.LogInformation("Started TCP listener to listen for incoming emails from Test1");
-
                         serviceStarted = true;
                     }
 
                     _logger.LogInformation("Started listening on TCP.");
 
-                    listener.Start();
-
                     TcpClient client = await listener.AcceptTcpClientAsync();
 
-                    await EnqueueEmailMessage(client);
+                    _ = EnqueueEmailMessage(client, cancellationToken);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "SMTP Server: Operation failed.");
-                throw;
             }
             finally
             {
-                client?.Close();
+                listener.Stop();
                 _logger.LogInformation("Stopped TCP listener for listening for incoming emails from atosonesource.com.");
             }
+        }
+
+        public void StopListener()
+        {
+            listener.Stop();
         }
 
         private async Task EnqueueTestEmailMessage()
@@ -107,40 +111,55 @@ namespace OneSourceSMTPServer.Services
             _logger.LogInformation("Enqueuing the test email message ended.");
         }
 
-        private async Task EnqueueEmailMessage(TcpClient client)
+        private async Task EnqueueEmailMessage(TcpClient client, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Intercepted an email message. Enqueuing the message started. Hurraaaaaaay!!!");
-
-            using (NetworkStream stream = client.GetStream())
+            try
             {
-                _logger.LogInformation("using (NetworkStream stream = client.GetStream())");
+                _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
 
-                using (var reader = new StreamReader(stream, Encoding.ASCII))
+                using (NetworkStream stream = client.GetStream())
                 {
-                    string emailContent;
-
-                    _logger.LogInformation("using (var reader = new StreamReader(stream, Encoding.ASCII))");
-
-                    while ((emailContent = await reader.ReadToEndAsync()) != null)
+                    using (var writer = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true })
                     {
-                        MimeMessage message;
+                        await writer.WriteLineAsync("250 OK");
 
-                        using (Stream memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(emailContent)))
+                        using (var reader = new StreamReader(stream, Encoding.ASCII))
                         {
-                            message = MimeMessage.Load(memoryStream);
+                            string line;
+
+                            while ((line = await reader.ReadToEndAsync()) != null)
+                            {
+                                _logger.LogInformation("Stream result: "+ line);
+
+                                var message = await MimeMessage.LoadAsync(stream, cancellationToken);
+
+                                _logger.LogInformation("Email sender address: " + message.Sender.Address);
+                                _logger.LogInformation("Email subject: " + message.Subject);
+
+                                //emailMessageQueue.Enqueue(message);
+                            }
                         }
-
-                        _logger.LogInformation("Email sender address: "+ message.Sender.Address);
-                        _logger.LogInformation("Email subject: " + message.Subject);
-
-                        //emailMessageQueue.Enqueue(message);
                     }
                 }
 
-
+                //_logger.LogInformation("Enqueuing the email message ended.");
             }
-
-            //_logger.LogInformation("Enqueuing the email message ended.");
+            catch (OperationCanceledException ex)
+            {
+                _logger.LogError(ex, "Operation cancelled");
+            }
+            catch (FormatException ex)
+            {
+                _logger.LogError(ex, "Format exception");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SMTP Server: Operation failed.");
+            }
+            finally
+            {
+                client.Close();
+            }
         }
 
         public async Task HandleEmailMessages(CancellationToken cancellationToken)
