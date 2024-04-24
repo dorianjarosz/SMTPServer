@@ -5,7 +5,13 @@ using MimeKit;
 using Hangfire;
 using OneSourceSMTPServer.Data.Entities;
 using OneSourceSMTPServer.Repositories;
+using MailKit.Net.Imap;
+using MailKit;
+using Tcp.NET.Client;
+using Tcp.NET.Client.Models;
+using MailKit.Net.Pop3;
 using System.Net;
+using MailKit.Net.Smtp;
 
 namespace OneSourceSMTPServer.Services
 {
@@ -71,6 +77,12 @@ namespace OneSourceSMTPServer.Services
 
                         serviceStarted = true;
                     }
+                    else
+                    {
+                        _ = SendTestEmail();
+                    }
+
+                    await Task.Delay(1000*60);
                 }                
             }
             catch (Exception ex)
@@ -113,6 +125,36 @@ namespace OneSourceSMTPServer.Services
             _logger.LogInformation("Enqueuing the test email message ended.");
         }
 
+        private async Task SendTestEmail()
+        {
+            while (true)
+            {
+                var message = new MimeMessage();
+                message.From.Add(new MailboxAddress("Joey Tribbiani", "joey@friends.com"));
+                message.To.Add(new MailboxAddress("Mrs. Chanandler Bong", "chandler@friends.com"));
+                message.Subject = "How you doin'?";
+
+                message.Body = new TextPart("plain")
+                {
+                    Text = @"Hey Chandler,
+
+                            I just wanted to let you know that Monica and I were going to go play some paintball, you in?
+
+                             -- Joey"
+                };
+
+                using (var client = new SmtpClient())
+                {
+                    client.Connect("localhost", 25, false);
+
+                    client.Send(message);
+                    client.Disconnect(true);
+                }
+
+                await Task.Delay(1000);
+            }
+        }
+
         private async Task EnqueueEmailMessage(TcpListener listener, CancellationToken cancellationToken)
         {
             try
@@ -122,6 +164,7 @@ namespace OneSourceSMTPServer.Services
                     TcpClient client = await listener.AcceptTcpClientAsync();
 
                     _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
+
 
                     using (var fileStream = new FileStream("C:\\SMTPReceiver\\ReceivedEmails\\hurray.txt", FileMode.Create))
                     {
