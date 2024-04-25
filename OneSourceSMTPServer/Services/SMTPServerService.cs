@@ -5,13 +5,9 @@ using MimeKit;
 using Hangfire;
 using OneSourceSMTPServer.Data.Entities;
 using OneSourceSMTPServer.Repositories;
+using MailKit.Net.Smtp;
 using MailKit.Net.Imap;
 using MailKit;
-using Tcp.NET.Client;
-using Tcp.NET.Client.Models;
-using MailKit.Net.Pop3;
-using System.Net;
-using MailKit.Net.Smtp;
 
 namespace OneSourceSMTPServer.Services
 {
@@ -38,8 +34,6 @@ namespace OneSourceSMTPServer.Services
         {
             try
             {
-                listener = new TcpListener(IPAddress.Any, port);
-
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     if (!serviceStarted)
@@ -68,22 +62,18 @@ namespace OneSourceSMTPServer.Services
                         {
                             _logger.LogInformation("Started TCP listener to listen for incoming emails from Test1");
 
-                            listener.Start();
-
                             _logger.LogInformation("Started listening on TCP.");
 
                             _ = EnqueueEmailMessage(listener, cancellationToken);
+
+                            _ = SendEmail(cancellationToken);
                         }
 
                         serviceStarted = true;
                     }
-                    else
-                    {
-                        _ = SendTestEmail();
-                    }
 
-                    await Task.Delay(1000*60);
-                }                
+                    await Task.Delay(1000 * 60);
+                }
             }
             catch (Exception ex)
             {
@@ -91,7 +81,6 @@ namespace OneSourceSMTPServer.Services
             }
             finally
             {
-                listener.Stop();
                 _logger.LogInformation("Stopped TCP listener for listening for incoming emails from atosonesource.com.");
             }
         }
@@ -125,78 +114,101 @@ namespace OneSourceSMTPServer.Services
             _logger.LogInformation("Enqueuing the test email message ended.");
         }
 
-        private async Task SendTestEmail()
-        {
-            while (true)
-            {
-                var message = new MimeMessage();
-                message.From.Add(new MailboxAddress("Joey Tribbiani", "joey@friends.com"));
-                message.To.Add(new MailboxAddress("Mrs. Chanandler Bong", "chandler@friends.com"));
-                message.Subject = "How you doin'?";
-
-                message.Body = new TextPart("plain")
-                {
-                    Text = @"Hey Chandler,
-
-                            I just wanted to let you know that Monica and I were going to go play some paintball, you in?
-
-                             -- Joey"
-                };
-
-                using (var client = new SmtpClient())
-                {
-                    client.Connect("localhost", 25, false);
-
-                    client.Send(message);
-                    client.Disconnect(true);
-                }
-
-                await Task.Delay(1000);
-            }
-        }
-
         private async Task EnqueueEmailMessage(TcpListener listener, CancellationToken cancellationToken)
         {
             try
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    TcpClient client = await listener.AcceptTcpClientAsync();
+                    _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
+
+                    await Task.Delay(1000*2);
+
+                                using (var client = new ImapClient())
+                                {
+
+                                    await client.ConnectAsync("localhost", 143, false);
+
+                                    await client.AuthenticateAsync("testname@mylocaldomain.com", "ASDFghjk");
+
+                                    var inbox = client.Inbox;
+                                    inbox.Open(FolderAccess.ReadOnly);
+
+                                    Console.WriteLine("Total messages: {0}", inbox.Count);
+                                    Console.WriteLine("Recent messages: {0}", inbox.Recent);
+
+                                    for (int i = 0; i < inbox.Count; i++)
+                                    {
+                                        var message = inbox.GetMessage(i);
+                                        Console.WriteLine("Subject: {0}", message.Subject);
+                                    }
+
+                                    client.Disconnect(true);
+
+                                }
+
+                           // emailMessageQueue.Enqueue(message);
+                }
+
+                //_logger.LogInformation("Enqueuing the email message ended.");
+            }
+            catch (OperationCanceledException ex)
+            {
+                _logger.LogError(ex, "Operation cancelled");
+            }
+            catch (FormatException ex)
+            {
+                _logger.LogError(ex, "Format exception");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SMTP Server: Operation failed.");
+            }
+            //finally
+            //{
+            //    client.Close();
+            //}
+        }
+
+        private async Task SendEmail(CancellationToken cancellationToken)
+        {
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    await Task.Delay(1000);
 
                     _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
 
-
-                    using (var fileStream = new FileStream("C:\\SMTPReceiver\\ReceivedEmails\\hurray.txt", FileMode.Create))
+                    foreach (var filePath in Directory.GetFiles("C:\\TestEmails"))
                     {
-                        string text = "hurray";
-
-                        fileStream.Write(Encoding.UTF8.GetBytes(text));
-                    }
-
-                    using (NetworkStream stream = client.GetStream())
-                    {
-                        using (var writer = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true })
+                        using (var streamReader = new StreamReader(filePath))
                         {
-                            await writer.WriteLineAsync("250 OK");
+                            string emailContent = emailContent = await streamReader.ReadToEndAsync();
 
-                            using (var reader = new StreamReader(stream, Encoding.ASCII))
+                            MimeMessage message;
+
+                            using (Stream memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(emailContent)))
                             {
-                                string line;
+                                message = MimeMessage.Load(memoryStream);
 
-                                while ((line = await reader.ReadToEndAsync()) != null)
+                                using (var client = new SmtpClient())
                                 {
-                                    _logger.LogInformation("Stream result: " + line);
 
-                                    var message = await MimeMessage.LoadAsync(stream, cancellationToken);
+                                    await client.ConnectAsync("localhost", 25, false);
 
-                                    _logger.LogInformation("Email sender address: " + message.Sender.Address);
-                                    _logger.LogInformation("Email subject: " + message.Subject);
+                                    await client.SendAsync(message);
 
-                                    //emailMessageQueue.Enqueue(message);
+                                    await client.DisconnectAsync(true);
+
                                 }
                             }
+
+                           // emailMessageQueue.Enqueue(message);
                         }
                     }
+
+
                 }
 
                 //_logger.LogInformation("Enqueuing the email message ended.");
