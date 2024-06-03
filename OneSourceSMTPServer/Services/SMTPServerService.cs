@@ -5,16 +5,14 @@ using MimeKit;
 using Hangfire;
 using OneSourceSMTPServer.Data.Entities;
 using OneSourceSMTPServer.Repositories;
-using MailKit.Net.Imap;
 using System.Net;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace OneSourceSMTPServer.Services
 {
     public class SMTPServerService : ISMTPServerService
     {
         private bool serviceStarted = false;
-        private bool enququeTestEmailMessages = false;
-        private readonly object _bindAndListenLock = new object();
         private readonly int port = 25;
         private readonly IOneSourceRepository _oneSourceRepository;
         private readonly ILogger<SMTPServerService> _logger;
@@ -59,18 +57,15 @@ namespace OneSourceSMTPServer.Services
 
                         _logger.LogInformation("Started deleting old email and logs hangfire task.");
 
-                        lock (_bindAndListenLock)
-                        {
-                            _logger.LogInformation("Started TCP listener to listen for incoming emails from Test1");
+                        _logger.LogInformation("Started TCP listener to listen for incoming emails from Test1");
 
-                            _logger.LogInformation("Started listening on TCP.");
+                        _logger.LogInformation("Started listening on TCP.");
 
-                            listener.Start();
+                        listener.Start();
 
-                            _logger.LogInformation("Started TCP listener to listen for incoming emails from Test1");
+                        _logger.LogInformation("Started TCP listener to listen for incoming emails from Test1");
 
-                            _ = EnqueueEmailMessage(listener, cancellationToken);
-                        }
+                        _ = EnqueueEmailMessage(listener, cancellationToken);
 
                         serviceStarted = true;
                     }
@@ -81,6 +76,7 @@ namespace OneSourceSMTPServer.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "SMTP Server: Operation failed.");
+                throw;
             }
             finally
             {
@@ -93,98 +89,97 @@ namespace OneSourceSMTPServer.Services
             listener.Stop();
         }
 
-        private async Task EnqueueTestEmailMessage()
-        {
-            _logger.LogInformation("Enqueuing the test email message started.");
-
-            foreach (var filePath in Directory.GetFiles("C:\\TestEmails"))
-            {
-                using (var streamReader = new StreamReader(filePath))
-                {
-                    string emailContent = emailContent = await streamReader.ReadToEndAsync();
-
-                    MimeMessage message;
-
-                    using (Stream memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(emailContent)))
-                    {
-                        message = MimeMessage.Load(memoryStream);
-                    }
-
-                    emailMessageQueue.Enqueue(message);
-                }
-            }
-
-            _logger.LogInformation("Enqueuing the test email message ended.");
-        }
-
         private async Task EnqueueEmailMessage(TcpListener listener, CancellationToken cancellationToken)
         {
             try
             {
-                while (!cancellationToken.IsCancellationRequested)
+
+                _logger.LogInformation("Started listening on TCP.");
+
+                TcpClient client = await listener.AcceptTcpClientAsync();
+
+                _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
+
+                using (NetworkStream networkStream = client.GetStream())
                 {
-                    _logger.LogInformation("Started listening on TCP.");
+                    _logger.LogInformation("Opening the network stream.");
 
-                    TcpClient client = await listener.AcceptTcpClientAsync();
-
-                    _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
-
-
-                    using (NetworkStream stream = client.GetStream())
+                    using (var reader = new StreamReader(networkStream, Encoding.ASCII))
                     {
-                        using (var reader = new StreamReader(stream, Encoding.ASCII))
+                        using (var writer = new StreamWriter(networkStream, Encoding.ASCII) { AutoFlush = true })
                         {
-                            string emailContent;
+                            _logger.LogInformation("Opening the stream in the stream reader.");
 
-                            while ((emailContent = await reader.ReadToEndAsync()) != null)
+                            while (!cancellationToken.IsCancellationRequested)
                             {
-                                MimeMessage message;
+                                await writer.WriteLineAsync("250 OK");
 
-                                using (Stream memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(emailContent)))
+                                string line = await reader.ReadLineAsync();
+
+                                if (line == null)
+                                    break;
+
+                                _logger.LogInformation($"Received: {line}");
+
+                                if (line.StartsWith("DATA"))
                                 {
-                                    message = MimeMessage.Load(memoryStream);
+                                    _logger.LogInformation($"Received data.");
                                 }
-
-                                //emailMessageQueue.Enqueue(message);
                             }
                         }
-                    }
 
-                    client.Close();
+                        //_logger.LogInformation("Reading received email.");
+
+                        //_logger.LogInformation("Received the following message: "+ emailContent);
+
+                        //MimeMessage message;
+
+                        //using (Stream memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(emailContent)))
+                        //{
+                        //    message = MimeMessage.Load(memoryStream);
+
+                        //    _logger.LogInformation("Email subject: " + message.Subject);
+                        //}
+
+                        //emailMessageQueue.Enqueue(message);
+
+                        _logger.LogInformation("Closing the stream in the stream reader.");
+                    }
                 }
 
-                //_logger.LogInformation("Enqueuing the email message ended.");
+                client.Close();
+
+                _logger.LogInformation("Enqueuing the email message ended.");
             }
             catch (OperationCanceledException ex)
             {
                 _logger.LogError(ex, "Operation cancelled");
+                throw;
             }
             catch (FormatException ex)
             {
                 _logger.LogError(ex, "Format exception");
+                throw;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "SMTP Server: Operation failed.");
+                throw;
             }
-            //finally
-            //{
-            //    client.Close();
-            //}
         }
 
         public async Task HandleEmailMessages(CancellationToken cancellationToken)
         {
-            try
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string mailDir = _configuration["SMTPReceiver:ReceivedEmailsDirectory"];
+
+            while (emailMessageQueue.TryPeek(out var emailMessage))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                string mailDir = _configuration["SMTPReceiver:ReceivedEmailsDirectory"];
-
-                _logger.LogInformation("HandleEmailMessages job: Started handling email received messages.");
-
-                while (emailMessageQueue.TryPeek(out var emailMessage))
+                try
                 {
+                    _logger.LogInformation("HandleEmailMessages job: Started handling email received messages.");
+
                     emailMessageQueue.Dequeue();
 
                     var message = emailMessage;
@@ -510,55 +505,61 @@ namespace OneSourceSMTPServer.Services
                     }
 
                     _logger.LogInformation("HandleEmailMessages job: Handling the following email message: " + emailMessage.Subject);
+
+                    _logger.LogInformation("HandleEmailMessages job: Ended handling email received messages.");
                 }
-
-                _logger.LogInformation("HandleEmailMessages job: Ended handling email received messages.");
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "HandleEmailMessages job: Service error occured");
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "HandleEmailMessages job: Service error occured");
-            }
-
         }
 
         public async Task DeleteOldEmailsAndLogs(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("DeleteOldEmailsAndLogs job: Started deleting old emails and logs.");
-
-            string mailDir = _configuration["SMTPReceiver:ReceivedEmailsDirectory"];
-
-            string timeForPersistingDataInMonthsValue = _configuration["DataRetentionPolicy:TimeForPersistingDataInMonths"];
-
-            int timeForPersistingDataInMonths = int.Parse(timeForPersistingDataInMonthsValue);
-
-            var latestDateToPersistData = DateTime.Now.AddMonths(-timeForPersistingDataInMonths);
-
-            var logsToDeltete = await _oneSourceRepository.GetAsync<SMTPLog>(l => l.LastUpdate < latestDateToPersistData);
-
-            _logger.LogInformation("DeleteOldEmailsAndLogs job: Started deleting old SMTP logs.");
-
-            if (logsToDeltete.Count > 0)
+            try
             {
-                await _oneSourceRepository.RemoveRangeAsync(logsToDeltete);
-            }
+                _logger.LogInformation("DeleteOldEmailsAndLogs job: Started deleting old emails and logs.");
 
-            _logger.LogInformation("DeleteOldEmailsAndLogs job: Finished deleting old SMTP logs.");
+                string mailDir = _configuration["SMTPReceiver:ReceivedEmailsDirectory"];
 
-            _logger.LogInformation("DeleteOldEmailsAndLogs job: Started deleting old EML email files.");
+                string timeForPersistingDataInMonthsValue = _configuration["DataRetentionPolicy:TimeForPersistingDataInMonths"];
 
-            string[] files = Directory.GetFiles(mailDir);
+                int timeForPersistingDataInMonths = int.Parse(timeForPersistingDataInMonthsValue);
 
-            foreach (string file in files)
-            {
-                FileInfo fi = new FileInfo(file);
+                var latestDateToPersistData = DateTime.Now.AddMonths(-timeForPersistingDataInMonths);
 
-                if (fi.CreationTime < latestDateToPersistData)
+                var logsToDeltete = await _oneSourceRepository.GetAsync<SMTPLog>(l => l.LastUpdate < latestDateToPersistData);
+
+                _logger.LogInformation("DeleteOldEmailsAndLogs job: Started deleting old SMTP logs.");
+
+                if (logsToDeltete.Count > 0)
                 {
-                    fi.Delete();
+                    await _oneSourceRepository.RemoveRangeAsync(logsToDeltete);
                 }
-            }
 
-            _logger.LogInformation("DeleteOldEmailsAndLogs job: Finished deleting old EML email files.");
+                _logger.LogInformation("DeleteOldEmailsAndLogs job: Finished deleting old SMTP logs.");
+
+                _logger.LogInformation("DeleteOldEmailsAndLogs job: Started deleting old EML email files.");
+
+                string[] files = Directory.GetFiles(mailDir);
+
+                foreach (string file in files)
+                {
+                    FileInfo fi = new FileInfo(file);
+
+                    if (fi.CreationTime < latestDateToPersistData)
+                    {
+                        fi.Delete();
+                    }
+                }
+
+                _logger.LogInformation("DeleteOldEmailsAndLogs job: Finished deleting old EML email files.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DeleteOldEmailsAndLogs job: Service error occured");
+            }
         }
 
         private string GetHeaderValue(IEnumerable<Header> headers, string headerName)
