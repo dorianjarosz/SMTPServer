@@ -108,40 +108,69 @@ namespace OneSourceSMTPServer.Services
                     {
                         using (var writer = new StreamWriter(networkStream, Encoding.ASCII) { AutoFlush = true })
                         {
+                            await writer.WriteLineAsync("220 OneSourceSMTPServer");
+
                             _logger.LogInformation("Opening the stream in the stream reader.");
+
+                            var emailBuilder = new StringBuilder();
 
                             while (!cancellationToken.IsCancellationRequested)
                             {
-                                await writer.WriteLineAsync("250 OK");
-
                                 string line = await reader.ReadLineAsync();
 
                                 if (line == null)
                                     break;
 
-                                _logger.LogInformation($"Received: {line}");
+                                _logger.LogInformation($"Line that has been read: {line}");
 
-                                if (line.StartsWith("DATA"))
+                                if (line.StartsWith("EHLO") || line.StartsWith("HELO"))
                                 {
-                                    _logger.LogInformation($"Received data.");
+                                    await writer.WriteLineAsync("250 Hello");
+                                }
+                                else if (line.StartsWith("MAIL FROM"))
+                                {
+                                    await writer.WriteLineAsync("250 OK");
+                                }
+                                else if (line.StartsWith("RCPT TO"))
+                                {
+                                    await writer.WriteLineAsync("250 OK");
+                                }
+                                else if (line.StartsWith("DATA"))
+                                {
+                                    await writer.WriteLineAsync("354 Start mail input; end with <CRLF>.<CRLF>");
+                                    while (true)
+                                    {
+                                        line = await reader.ReadLineAsync();
+                                        if (line == ".")
+                                            break;
+                                        emailBuilder.AppendLine(line);
+                                    }
+
+                                    _logger.LogInformation($"Email subject to parse: {emailBuilder}");
+
+                                    var email = ParseEmail(emailBuilder.ToString());
+
+                                    _logger.LogInformation($"Parsed email subject: {email.Subject}");
+
+                                    _logger.LogInformation($"Enqueued the following email message: {email}");
+
+                                    emailMessageQueue.Enqueue(email);
+
+                                    emailBuilder.Clear();
+
+                                    await writer.WriteLineAsync("250 OK");
+                                }
+                                else if (line.StartsWith("QUIT"))
+                                {
+                                    await writer.WriteLineAsync("221 Bye");
+                                    break;
+                                }
+                                else
+                                {
+                                    await writer.WriteLineAsync("500 Command not recognized");
                                 }
                             }
                         }
-
-                        //_logger.LogInformation("Reading received email.");
-
-                        //_logger.LogInformation("Received the following message: "+ emailContent);
-
-                        //MimeMessage message;
-
-                        //using (Stream memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(emailContent)))
-                        //{
-                        //    message = MimeMessage.Load(memoryStream);
-
-                        //    _logger.LogInformation("Email subject: " + message.Subject);
-                        //}
-
-                        //emailMessageQueue.Enqueue(message);
 
                         _logger.LogInformation("Closing the stream in the stream reader.");
                     }
@@ -560,6 +589,12 @@ namespace OneSourceSMTPServer.Services
             {
                 _logger.LogError(ex, "DeleteOldEmailsAndLogs job: Service error occured");
             }
+        }
+
+        private MimeMessage ParseEmail(string rawData)
+        {
+            using var stream = new MemoryStream(Encoding.ASCII.GetBytes(rawData.Replace("\r\n", "\n").Replace("\n", "\r\n")));
+            return MimeMessage.Load(stream);
         }
 
         private string GetHeaderValue(IEnumerable<Header> headers, string headerName)
