@@ -93,92 +93,95 @@ namespace OneSourceSMTPServer.Services
         {
             try
             {
-
-                _logger.LogInformation("Started listening on TCP.");
-
-                TcpClient client = await listener.AcceptTcpClientAsync();
-
-                _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
-
-                using (NetworkStream networkStream = client.GetStream())
+                while (!cancellationToken.IsCancellationRequested)
                 {
-                    _logger.LogInformation("Opening the network stream.");
 
-                    using (var reader = new StreamReader(networkStream, Encoding.ASCII))
+                    _logger.LogInformation("Started listening on TCP.");
+
+                    TcpClient client = await listener.AcceptTcpClientAsync();
+
+                    _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
+
+                    using (NetworkStream networkStream = client.GetStream())
                     {
-                        using (var writer = new StreamWriter(networkStream, Encoding.ASCII) { AutoFlush = true })
+                        _logger.LogInformation("Opening the network stream.");
+
+                        using (var reader = new StreamReader(networkStream, Encoding.ASCII))
                         {
-                            await writer.WriteLineAsync("220 OneSourceSMTPServer");
-
-                            _logger.LogInformation("Opening the stream in the stream reader.");
-
-                            var emailBuilder = new StringBuilder();
-
-                            while (!cancellationToken.IsCancellationRequested)
+                            using (var writer = new StreamWriter(networkStream, Encoding.ASCII) { AutoFlush = true })
                             {
-                                string line = await reader.ReadLineAsync();
+                                await writer.WriteLineAsync("220 OneSourceSMTPServer");
 
-                                if (line == null)
-                                    break;
+                                _logger.LogInformation("Opening the stream in the stream reader.");
 
-                                _logger.LogInformation($"Line that has been read: {line}");
+                                var emailBuilder = new StringBuilder();
 
-                                if (line.StartsWith("EHLO") || line.StartsWith("HELO"))
+                                while (!cancellationToken.IsCancellationRequested)
                                 {
-                                    await writer.WriteLineAsync("250 Hello");
-                                }
-                                else if (line.StartsWith("MAIL FROM"))
-                                {
-                                    await writer.WriteLineAsync("250 OK");
-                                }
-                                else if (line.StartsWith("RCPT TO"))
-                                {
-                                    await writer.WriteLineAsync("250 OK");
-                                }
-                                else if (line.StartsWith("DATA"))
-                                {
-                                    await writer.WriteLineAsync("354 Start mail input; end with <CRLF>.<CRLF>");
-                                    while (true)
+                                    string line = await reader.ReadLineAsync();
+
+                                    if (line == null)
+                                        break;
+
+                                    _logger.LogInformation($"Line that has been read: {line}");
+
+                                    if (line.StartsWith("EHLO") || line.StartsWith("HELO"))
                                     {
-                                        line = await reader.ReadLineAsync();
-                                        if (line == ".")
-                                            break;
-                                        emailBuilder.AppendLine(line);
+                                        await writer.WriteLineAsync("250 Hello");
                                     }
+                                    else if (line.StartsWith("MAIL FROM"))
+                                    {
+                                        await writer.WriteLineAsync("250 OK");
+                                    }
+                                    else if (line.StartsWith("RCPT TO"))
+                                    {
+                                        await writer.WriteLineAsync("250 OK");
+                                    }
+                                    else if (line.StartsWith("DATA"))
+                                    {
+                                        await writer.WriteLineAsync("354 Start mail input; end with <CRLF>.<CRLF>");
+                                        while (true)
+                                        {
+                                            line = await reader.ReadLineAsync();
+                                            if (line == ".")
+                                                break;
+                                            emailBuilder.AppendLine(line);
+                                        }
 
-                                    _logger.LogInformation($"Email subject to parse: {emailBuilder}");
+                                        _logger.LogInformation($"Email subject to parse: {emailBuilder}");
 
-                                    var email = ParseEmail(emailBuilder.ToString());
+                                        var email = ParseEmail(emailBuilder.ToString());
 
-                                    _logger.LogInformation($"Parsed email subject: {email.Subject}");
+                                        _logger.LogInformation($"Parsed email subject: {email.Subject}");
 
-                                    _logger.LogInformation($"Enqueued the following email message: {email}");
+                                        _logger.LogInformation($"Enqueued the following email message: {email}");
 
-                                    emailMessageQueue.Enqueue(email);
+                                        emailMessageQueue.Enqueue(email);
 
-                                    emailBuilder.Clear();
+                                        emailBuilder.Clear();
 
-                                    await writer.WriteLineAsync("250 OK");
-                                }
-                                else if (line.StartsWith("QUIT"))
-                                {
-                                    await writer.WriteLineAsync("221 Bye");
-                                    break;
-                                }
-                                else
-                                {
-                                    await writer.WriteLineAsync("500 Command not recognized");
+                                        await writer.WriteLineAsync("250 OK");
+                                    }
+                                    else if (line.StartsWith("QUIT"))
+                                    {
+                                        await writer.WriteLineAsync("221 Bye");
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        await writer.WriteLineAsync("500 Command not recognized");
+                                    }
                                 }
                             }
+
+                            _logger.LogInformation("Closing the stream in the stream reader.");
                         }
-
-                        _logger.LogInformation("Closing the stream in the stream reader.");
                     }
+
+                    client.Close();
+
+                    _logger.LogInformation("Enqueuing the email message ended.");
                 }
-
-                client.Close();
-
-                _logger.LogInformation("Enqueuing the email message ended.");
             }
             catch (OperationCanceledException ex)
             {
