@@ -158,6 +158,8 @@ namespace OneSourceSMTPServer.Services
 
                                         emailMessageQueue.Enqueue(email);
 
+                                        _logger.LogInformation("Enqueuing the email message ended.");
+
                                         emailBuilder.Clear();
 
                                         await writer.WriteLineAsync("250 OK");
@@ -169,6 +171,8 @@ namespace OneSourceSMTPServer.Services
                                     }
                                     else
                                     {
+                                        _logger.LogInformation("500 Command not recognized.");
+
                                         await writer.WriteLineAsync("500 Command not recognized");
                                     }
                                 }
@@ -179,8 +183,6 @@ namespace OneSourceSMTPServer.Services
                     }
 
                     client.Close();
-
-                    _logger.LogInformation("Enqueuing the email message ended.");
                 }
             }
             catch (OperationCanceledException ex)
@@ -206,12 +208,12 @@ namespace OneSourceSMTPServer.Services
 
             string mailDir = _configuration["SMTPReceiver:ReceivedEmailsDirectory"];
 
+            _logger.LogInformation("HandleEmailMessages job: Started handling email received messages.");
+
             while (emailMessageQueue.TryPeek(out var emailMessage))
             {
                 try
                 {
-                    _logger.LogInformation("HandleEmailMessages job: Started handling email received messages.");
-
                     emailMessageQueue.Dequeue();
 
                     var message = emailMessage;
@@ -537,14 +539,14 @@ namespace OneSourceSMTPServer.Services
                     }
 
                     _logger.LogInformation("HandleEmailMessages job: Handling the following email message: " + emailMessage.Subject);
-
-                    _logger.LogInformation("HandleEmailMessages job: Ended handling email received messages.");
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "HandleEmailMessages job: Service error occured");
                 }
             }
+
+            _logger.LogInformation("HandleEmailMessages job: Ended handling email received messages.");
         }
 
         public async Task DeleteOldEmailsAndLogs(CancellationToken cancellationToken)
