@@ -7,6 +7,7 @@ using OneSourceSMTPServer.Data.Entities;
 using OneSourceSMTPServer.Repositories;
 using System.Net;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using Hangfire.MAMQSqlExtension;
 
 namespace OneSourceSMTPServer.Services
 {
@@ -42,7 +43,10 @@ namespace OneSourceSMTPServer.Services
                         RecurringJob.AddOrUpdate(
                             "HandleEmailMessages",
                             () => HandleEmailMessages(CancellationToken.None),
-                            "*/5 * * * * *"
+                            "*/5 * * * * *", new RecurringJobOptions
+                            {
+                                QueueName= "onesource_main_queue"
+                            }
                         );
 
                         _logger.LogInformation("Started handling email messages hangfire task.");
@@ -52,7 +56,10 @@ namespace OneSourceSMTPServer.Services
                         RecurringJob.AddOrUpdate(
                             "DeleteOldEmailsAndLogs",
                             () => DeleteOldEmailsAndLogs(CancellationToken.None),
-                            _configuration["DataRetentionPolicy:DeleteOldLogsAndEmailsCronExpression"]
+                            _configuration["DataRetentionPolicy:DeleteOldLogsAndEmailsCronExpression"], new RecurringJobOptions
+                            {
+                                QueueName = "onesource_main_queue"
+                            }
                         );
 
                         _logger.LogInformation("Started deleting old email and logs hangfire task.");
@@ -202,6 +209,7 @@ namespace OneSourceSMTPServer.Services
             }
         }
 
+        [RetryInQueue("onesource_main_queue")]
         public async Task HandleEmailMessages(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -549,6 +557,7 @@ namespace OneSourceSMTPServer.Services
             _logger.LogInformation("HandleEmailMessages job: Ended handling email received messages.");
         }
 
+        [RetryInQueue("onesource_main_queue")]
         public async Task DeleteOldEmailsAndLogs(CancellationToken cancellationToken)
         {
             try

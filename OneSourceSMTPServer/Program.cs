@@ -1,4 +1,6 @@
 using Hangfire;
+using Hangfire.MAMQSqlExtension;
+using Hangfire.SqlServer;
 using Microsoft.EntityFrameworkCore;
 using OneSourceSMTPServer;
 using OneSourceSMTPServer.Data;
@@ -26,15 +28,15 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddHostedService<Worker>();
 
         services.AddHangfire(configuration => configuration
-                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
                 .UseSimpleAssemblyNameTypeSerializer()
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
                 .UseRecommendedSerializerSettings()
-                .UseSqlServerStorage(connectionString));
-
-        services.AddHangfireServer(options =>
-        {
-            options.SchedulePollingInterval = TimeSpan.FromMilliseconds(5000);
-        });
+                .UseResultsInContinuations()
+                .UseMAMQSqlServerStorage(connectionString, new SqlServerStorageOptions
+                {
+                    UsePageLocksOnDequeue = true,
+                    DisableGlobalLocks = true,
+                }, new[] { "onesource_main_queue" }));
 
         services.AddWindowsService(options =>
         {
