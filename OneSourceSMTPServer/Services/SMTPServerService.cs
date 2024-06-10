@@ -43,7 +43,7 @@ namespace OneSourceSMTPServer.Services
                         RecurringJob.AddOrUpdate(
                             "HandleEmailMessages",
                             () => HandleEmailMessages(CancellationToken.None),
-                            "*/5 * * * * *", new RecurringJobOptions
+                            _configuration["SMTPReceiver:HandleEmailIntervalCronExpression"], new RecurringJobOptions
                             {
                                 QueueName= "onesource_main_queue"
                             }

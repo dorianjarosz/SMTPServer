@@ -38,6 +38,11 @@ IHost host = Host.CreateDefaultBuilder(args)
                     DisableGlobalLocks = true,
                 }, new[] { "onesource_main_queue" }));
 
+        services.AddHangfireServer(options =>
+        {
+            options.Queues = new[] { "onesource_main_queue" };
+        });
+
         services.AddWindowsService(options =>
         {
             options.ServiceName = "SMTP Server";
