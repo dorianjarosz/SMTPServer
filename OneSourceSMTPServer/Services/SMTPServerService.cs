@@ -8,6 +8,9 @@ using OneSourceSMTPServer.Repositories;
 using System.Net;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using Hangfire.MAMQSqlExtension;
+using Microsoft.Extensions.Logging;
+using Azure.Messaging;
+using static System.Collections.Specialized.BitVector32;
 
 namespace OneSourceSMTPServer.Services
 {
@@ -425,20 +428,6 @@ namespace OneSourceSMTPServer.Services
 
                         foreach (var mapping in mappings)
                         {
-                            var json = new
-                            {
-                                mode = mapping.Mode,
-                                fromEmail = fromEmail,
-                                toEmail = toEmailAux,
-                                subject = message.Subject,
-                                originalEML = Path.GetFileName(fileName),
-                                messageContent = contentEncoded
-                            };
-
-                            var jsonString = JsonConvert.SerializeObject(json);
-
-                            var fullcontent = new StringContent(jsonString, Encoding.UTF8, "application/json");
-
                             string destInstance = "";
 
                             //if toEmail condition match
@@ -497,22 +486,61 @@ namespace OneSourceSMTPServer.Services
 
                                         var httpClient = new HttpClient();
 
-                                        string url = destInstance + "/api/SMTPReceiver";
+                                        string apiUrl;
+
+                                        var json = new
+                                        {
+                                            mode = mapping.Mode,
+                                            fromEmail = fromEmail,
+                                            toEmail = toEmailAux,
+                                            subject = message.Subject,
+                                            originalEML = Path.GetFileName(fileName),
+                                            MessageContent = contentEncoded,
+                                            dataAccess=mapping.DataAccess,
+                                            category=mapping.Category,
+                                            section=mapping.Section,
+                                            MenuEntryName=mapping.MenuEntryName,
+                                        };
+
+                                        StringContent fullcontent;
+
+                                        var jsonString = JsonConvert.SerializeObject(json);
+
+                                        fullcontent = new StringContent(jsonString, Encoding.UTF8, "application/json");
+
+                                        if (mapping.DestinationInstanceVersion == "V3")
+                                        {
+                                            apiUrl = "/api/SMTPReceiver";
+                                        }
+                                        else
+                                        {
+                                            apiUrl = "/Admin/SMTPReceiver.aspx?lng=EN&mode=" + mapping.Mode;
+                                        }
+
+                                        string url = destInstance + apiUrl;
 
                                         if (destInstance.Trim() == "52.211.50.245") //dev without https
                                         {
-                                            url = destInstance + "/api/SMTPReceiver";
+                                            url = destInstance + apiUrl;
                                         }
 
                                         HttpResponseMessage remoteServerResponse = null;
 
                                         try
                                         {
+                                            _logger.LogInformation("Forwarding the email.");
 
                                             remoteServerResponse = await httpClient.PostAsync(url, fullcontent);
+
                                             if (remoteServerResponse.IsSuccessStatusCode)
                                             {
+                                                _logger.LogInformation("Successfully forwarded the email.");
+
                                                 string result = remoteServerResponse.Content.ToString();
+                                            }
+                                            else
+                                            {
+                                                _logger.LogError(remoteServerResponse.StatusCode+" has been returned. "+ remoteServerResponse.Content?.ToString() ?? null);
                                             }
                                         }
                                         catch (Exception ex)

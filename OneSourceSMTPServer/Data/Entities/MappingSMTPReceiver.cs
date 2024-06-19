@@ -25,6 +25,9 @@ namespace OneSourceSMTPServer.Data.Entities
         [Column("destinationInstance")]
         public string DestinationInstance { get; set; }
 
+        [Column("destinationInstanceVersion")]
+        public string DestinationInstanceVersion { get; set; }
+
         [Column("containsString")]
         public string ContainsString { get; set; }
 
