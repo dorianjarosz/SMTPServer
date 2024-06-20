@@ -48,7 +48,7 @@ namespace OneSourceSMTPServer.Services
                             () => HandleEmailMessages(CancellationToken.None),
                             _configuration["SMTPReceiver:HandleEmailIntervalCronExpression"], new RecurringJobOptions
                             {
-                                QueueName= "onesource_main_queue"
+                                QueueName = "onesource_main_queue"
                             }
                         );
 
@@ -488,28 +488,10 @@ namespace OneSourceSMTPServer.Services
 
                                         string apiUrl;
 
-                                        var json = new
-                                        {
-                                            mode = mapping.Mode,
-                                            fromEmail = fromEmail,
-                                            toEmail = toEmailAux,
-                                            subject = message.Subject,
-                                            originalEML = Path.GetFileName(fileName),
-                                            MessageContent = contentEncoded,
-                                            dataAccess=mapping.DataAccess,
-                                            category=mapping.Category,
-                                            section=mapping.Section,
-                                            MenuEntryName=mapping.MenuEntryName,
-                                        };
-
-                                        StringContent fullcontent;
-
-                                        var jsonString = JsonConvert.SerializeObject(json);
-
-                                        fullcontent = new StringContent(jsonString, Encoding.UTF8, "application/json");
-
                                         if (mapping.DestinationInstanceVersion == "V3")
                                         {
+
+
                                             apiUrl = "/api/SMTPReceiver";
                                         }
                                         else
@@ -530,7 +512,55 @@ namespace OneSourceSMTPServer.Services
                                         {
                                             _logger.LogInformation("Forwarding the email.");
 
-                                            remoteServerResponse = await httpClient.PostAsync(url, fullcontent);
+                                            var json = new
+                                            {
+                                                mode = mapping.Mode,
+                                                fromEmail = fromEmail,
+                                                toEmail = toEmailAux,
+                                                subject = message.Subject,
+                                                originalEML = Path.GetFileName(fileName),
+                                                MessageContent = contentEncoded,
+                                                dataAccess = mapping.DataAccess,
+                                                category = mapping.Category,
+                                                section = mapping.Section,
+                                                MenuEntryName = mapping.MenuEntryName,
+                                            };
+
+                                            if (mapping.DestinationInstanceVersion == "V3")
+                                            {
+                                                var jsonString = JsonConvert.SerializeObject(json);
+
+                                                StringContent fullcontent = new StringContent(jsonString, Encoding.UTF8, "application/json");
+
+                                                remoteServerResponse = await httpClient.PostAsync(url, fullcontent);
+                                            }
+                                            else
+                                            {
+                                                var fullcontent = new MultipartFormDataContent();
+
+                                                var pairs = new List<KeyValuePair<string, string>>
+                                                {
+                                                    new KeyValuePair<string, string>("MessageContent", json.MessageContent),
+                                                    new KeyValuePair<string, string>("fromEmail", json.fromEmail),
+                                                    new KeyValuePair<string, string>("toEmail", json.toEmail),
+                                                    new KeyValuePair<string, string>("subject", json.subject),
+                                                    new KeyValuePair<string, string>("originalEML", json.originalEML),
+                                                    new KeyValuePair<string, string>("MenuEntryName", json.MenuEntryName),
+                                                    new KeyValuePair<string, string>("section", json.section),
+                                                    new KeyValuePair<string, string>("category", json.category),
+                                                    new KeyValuePair<string, string>("dataAccess", json.dataAccess),
+                                                };
+
+                                                foreach (var pair in pairs)
+                                                {
+                                                    if (pair.Key != null && pair.Value != null)
+                                                    {
+                                                        fullcontent.Add(new StringContent(pair.Value), pair.Key);
+                                                    }
+                                                }
+
+                                                remoteServerResponse = await httpClient.PostAsync(url, fullcontent);
+                                            }
 
                                             if (remoteServerResponse.IsSuccessStatusCode)
                                             {
@@ -540,7 +570,7 @@ namespace OneSourceSMTPServer.Services
                                             }
                                             else
                                             {
-                                                _logger.LogError(remoteServerResponse.StatusCode+" has been returned. "+ remoteServerResponse.Content?.ToString() ?? null);
+                                                _logger.LogError(remoteServerResponse.StatusCode + " has been returned. " + remoteServerResponse.Content?.ToString() ?? null);
                                             }
                                         }
                                         catch (Exception ex)
