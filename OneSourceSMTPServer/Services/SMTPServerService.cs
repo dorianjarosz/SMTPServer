@@ -6,11 +6,7 @@ using Hangfire;
 using OneSourceSMTPServer.Data.Entities;
 using OneSourceSMTPServer.Repositories;
 using System.Net;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 using Hangfire.MAMQSqlExtension;
-using Microsoft.Extensions.Logging;
-using Azure.Messaging;
-using static System.Collections.Specialized.BitVector32;
 
 namespace OneSourceSMTPServer.Services
 {
@@ -45,7 +41,7 @@ namespace OneSourceSMTPServer.Services
 
                         RecurringJob.AddOrUpdate(
                             "HandleEmailMessages",
-                            () => HandleEmailMessages(CancellationToken.None),
+                            () => HandleEmailMessages(),
                             _configuration["SMTPReceiver:HandleEmailIntervalCronExpression"], new RecurringJobOptions
                             {
                                 QueueName = "onesource_main_queue"
@@ -58,7 +54,7 @@ namespace OneSourceSMTPServer.Services
 
                         RecurringJob.AddOrUpdate(
                             "DeleteOldEmailsAndLogs",
-                            () => DeleteOldEmailsAndLogs(CancellationToken.None),
+                            () => DeleteOldEmailsAndLogs(),
                             _configuration["DataRetentionPolicy:DeleteOldLogsAndEmailsCronExpression"], new RecurringJobOptions
                             {
                                 QueueName = "onesource_main_queue"
@@ -213,10 +209,8 @@ namespace OneSourceSMTPServer.Services
         }
 
         [RetryInQueue("onesource_main_queue")]
-        public async Task HandleEmailMessages(CancellationToken cancellationToken)
+        public async Task HandleEmailMessages()
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
             string mailDir = _configuration["SMTPReceiver:ReceivedEmailsDirectory"];
 
             _logger.LogInformation("HandleEmailMessages job: Started handling email received messages.");
@@ -616,7 +610,7 @@ namespace OneSourceSMTPServer.Services
         }
 
         [RetryInQueue("onesource_main_queue")]
-        public async Task DeleteOldEmailsAndLogs(CancellationToken cancellationToken)
+        public async Task DeleteOldEmailsAndLogs()
         {
             try
             {

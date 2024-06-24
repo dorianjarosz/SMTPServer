@@ -40,7 +40,7 @@ IHost host = Host.CreateDefaultBuilder(args)
 
         services.AddHangfireServer(options =>
         {
-            options.Queues = new[] { "onesource_main_queue" };
+            options.Queues = new[] { "onesource_main_queue", "default" };
         });
 
         services.AddWindowsService(options =>
