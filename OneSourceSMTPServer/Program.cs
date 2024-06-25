@@ -14,21 +14,18 @@ IHost host = Host.CreateDefaultBuilder(args)
         {
             hostOptions.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
         });
-        services.AddSingleton<ISMTPServerService, SMTPServerService>();
-        services.AddSingleton<IOneSourceRepository, OneSourceRepository>();
 
         var connectionString = context.Configuration.GetConnectionString("OneSourceContextConnection");
 
-        var optionsBuilder = new DbContextOptionsBuilder<OneSourceContext>();
+        services.AddDbContextFactory<OneSourceContext>(options =>
+                     options.UseSqlServer(connectionString));
 
-        optionsBuilder.UseSqlServer(connectionString);
-
-        services.AddSingleton(db => new OneSourceContext(optionsBuilder.Options));
+        services.AddSingleton<ISMTPServerService, SMTPServerService>();
+        services.AddSingleton<IOneSourceRepository, OneSourceRepository>();
 
         services.AddHostedService<Worker>();
 
         services.AddHangfire(configuration => configuration
-                .UseSimpleAssemblyNameTypeSerializer()
                 .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
                 .UseRecommendedSerializerSettings()
                 .UseResultsInContinuations()

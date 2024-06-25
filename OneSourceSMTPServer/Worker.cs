@@ -7,18 +7,14 @@ namespace OneSourceSMTPServer
     public class Worker : BackgroundService
     {
         private readonly ISMTPServerService _smtpReceiver;
-        private readonly OneSourceContext _context;
 
-        public Worker(ISMTPServerService smtpReceiver, OneSourceContext context)
+        public Worker(ISMTPServerService smtpReceiver)
         {
             _smtpReceiver = smtpReceiver;
-            _context = context;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await _context.Database.MigrateAsync();
-
             await _smtpReceiver.HandleClientAsync(stoppingToken);
         }
 

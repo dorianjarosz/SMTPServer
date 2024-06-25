@@ -31,6 +31,8 @@ namespace OneSourceSMTPServer.Services
         {
             try
             {
+                await _oneSourceRepository.MigrateDatabaseAsync();
+
                 var listener = new TcpListener(new IPEndPoint(IPAddress.Any, port));
 
                 while (!cancellationToken.IsCancellationRequested)
@@ -211,14 +213,14 @@ namespace OneSourceSMTPServer.Services
         [RetryInQueue("onesource_main_queue")]
         public async Task HandleEmailMessages()
         {
-            string mailDir = _configuration["SMTPReceiver:ReceivedEmailsDirectory"];
-
-            _logger.LogInformation("HandleEmailMessages job: Started handling email received messages.");
-
             while (emailMessageQueue.TryPeek(out var emailMessage))
             {
+                string mailDir = _configuration["SMTPReceiver:ReceivedEmailsDirectory"];
+
                 try
                 {
+                    _logger.LogInformation("HandleEmailMessages job: Started handling email received messages.");
+
                     emailMessageQueue.Dequeue();
 
                     var message = emailMessage;
@@ -403,6 +405,8 @@ namespace OneSourceSMTPServer.Services
                     byte[] buff = await File.ReadAllBytesAsync(fileName);
                     string contentEncoded = Convert.ToBase64String(buff);
 
+                    _logger.LogInformation("HandleEmailMessages job: Recipient emails: " + string.Join(", ", toEmail));
+
                     foreach (string toEmailAux in toEmail)
                     {
                         var smtpLog = new SMTPLog
@@ -418,50 +422,17 @@ namespace OneSourceSMTPServer.Services
 
                         await _oneSourceRepository.AddAsync(smtpLog);
 
-                        var mappings = await _oneSourceRepository.GetAllAsync<MappingSMTPReceiver>();
+                        var mappings = await _oneSourceRepository.GetAsync<MappingSMTPReceiver>(m => m.ToEmail.ToLower() == toEmailAux.ToLower());
 
                         foreach (var mapping in mappings)
                         {
-                            string destInstance = "";
-
-                            //if toEmail condition match
-                            if (!string.IsNullOrWhiteSpace(mapping.ToEmail) && mapping.ToEmail == toEmailAux)
-                            {
-                                destInstance = mapping.DestinationInstance;
-
-                                //if containsString condition match
-                                if (!string.IsNullOrEmpty(mapping.ContainsString) && htmlBody != null && htmlBody.ToLower().Contains(mapping.ContainsString))
-                                {
-                                    destInstance = mapping.DestinationInstance;
-                                }
-                                else if (mapping.ContainsString != null && mapping.ContainsString == "")
-                                {
-                                    destInstance = mapping.DestinationInstance;
-                                }
-                                else if (mapping.ContainsString == null)
-                                {
-                                    destInstance = mapping.DestinationInstance;
-                                }
-                                else
-                                {
-                                    destInstance = "";
-                                }
-
-                                if (mapping.DiscardInternal != null && mapping.DiscardInternal == true && htmlBody != null && (htmlBody.Contains("Owning GBU") || htmlBody.Contains("Leading GBU")))
-                                {
-                                    destInstance = "";
-                                }
-
-                            }
+                            string destInstance = mapping.DestinationInstance;
 
                             if (!string.IsNullOrWhiteSpace(destInstance))
                             {
-                                //Indicate the process mode (MIP1, BODYSAVER, FILESAVER, BACKUPS, ...)
-
                                 try
                                 {
                                     bool isEnabled = mapping.IsEnabled;
-
 
                                     if (isEnabled)
                                     {
@@ -482,10 +453,8 @@ namespace OneSourceSMTPServer.Services
 
                                         string apiUrl;
 
-                                        if (mapping.DestinationInstanceVersion == "V3")
+                                        if (mapping.DestinationInstanceVersion.ToLower() == "v3")
                                         {
-
-
                                             apiUrl = "/api/SMTPReceiver";
                                         }
                                         else
@@ -504,7 +473,7 @@ namespace OneSourceSMTPServer.Services
 
                                         try
                                         {
-                                            _logger.LogInformation("Forwarding the email.");
+                                            _logger.LogInformation("HandleEmailMessages job: Forwarding the email.");
 
                                             var json = new
                                             {
@@ -513,14 +482,10 @@ namespace OneSourceSMTPServer.Services
                                                 toEmail = toEmailAux,
                                                 subject = message.Subject,
                                                 originalEML = Path.GetFileName(fileName),
-                                                MessageContent = contentEncoded,
-                                                dataAccess = mapping.DataAccess,
-                                                category = mapping.Category,
-                                                section = mapping.Section,
-                                                MenuEntryName = mapping.MenuEntryName,
+                                                MessageContent = contentEncoded
                                             };
 
-                                            if (mapping.DestinationInstanceVersion == "V3")
+                                            if (mapping.DestinationInstanceVersion.ToLower() == "v3")
                                             {
                                                 var jsonString = JsonConvert.SerializeObject(json);
 
@@ -538,11 +503,7 @@ namespace OneSourceSMTPServer.Services
                                                     new KeyValuePair<string, string>("fromEmail", json.fromEmail),
                                                     new KeyValuePair<string, string>("toEmail", json.toEmail),
                                                     new KeyValuePair<string, string>("subject", json.subject),
-                                                    new KeyValuePair<string, string>("originalEML", json.originalEML),
-                                                    new KeyValuePair<string, string>("MenuEntryName", json.MenuEntryName),
-                                                    new KeyValuePair<string, string>("section", json.section),
-                                                    new KeyValuePair<string, string>("category", json.category),
-                                                    new KeyValuePair<string, string>("dataAccess", json.dataAccess),
+                                                    new KeyValuePair<string, string>("originalEML", json.originalEML)
                                                 };
 
                                                 foreach (var pair in pairs)
@@ -558,13 +519,13 @@ namespace OneSourceSMTPServer.Services
 
                                             if (remoteServerResponse.IsSuccessStatusCode)
                                             {
-                                                _logger.LogInformation("Successfully forwarded the email.");
+                                                _logger.LogInformation("HandleEmailMessages job: Successfully forwarded the email.");
 
                                                 string result = remoteServerResponse.Content.ToString();
                                             }
                                             else
                                             {
-                                                _logger.LogError(remoteServerResponse.StatusCode + " has been returned. " + remoteServerResponse.Content?.ToString() ?? null);
+                                                _logger.LogError("HandleEmailMessages job: "+remoteServerResponse.StatusCode + " has been returned. " + remoteServerResponse.Content?.ToString() ?? null);
                                             }
                                         }
                                         catch (Exception ex)
