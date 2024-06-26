@@ -7,6 +7,8 @@ using OneSourceSMTPServer.Data.Entities;
 using OneSourceSMTPServer.Repositories;
 using System.Net;
 using Hangfire.MAMQSqlExtension;
+using OneSourceSharedLibrary;
+using Hangfire.Common;
 
 namespace OneSourceSMTPServer.Services
 {
@@ -15,16 +17,18 @@ namespace OneSourceSMTPServer.Services
         private bool serviceStarted = false;
         private readonly int port = 25;
         private readonly IOneSourceRepository _oneSourceRepository;
+        private readonly IRecurringJobManager _recurringJobManager;
         private readonly ILogger<SMTPServerService> _logger;
         private readonly IConfiguration _configuration;
         private TcpListener listener;
         private static Queue<MimeMessage> emailMessageQueue = new Queue<MimeMessage>();
 
-        public SMTPServerService(IOneSourceRepository oneSourceRepository, ILogger<SMTPServerService> logger, IConfiguration configuration)
+        public SMTPServerService(IOneSourceRepository oneSourceRepository, ILogger<SMTPServerService> logger, IConfiguration configuration, IRecurringJobManager recurringJobManager)
         {
             _oneSourceRepository = oneSourceRepository;
             _logger = logger;
             _configuration = configuration;
+            _recurringJobManager = recurringJobManager;
         }
 
         public async Task HandleClientAsync(CancellationToken cancellationToken)
@@ -33,7 +37,7 @@ namespace OneSourceSMTPServer.Services
             {
                 await _oneSourceRepository.MigrateDatabaseAsync();
 
-                var listener = new TcpListener(new IPEndPoint(IPAddress.Any, port));
+                listener = new TcpListener(new IPEndPoint(IPAddress.Any, port));
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
@@ -41,9 +45,12 @@ namespace OneSourceSMTPServer.Services
                     {
                         _logger.LogInformation("Starting handling email messages hangfire task.");
 
-                        RecurringJob.AddOrUpdate(
-                            "HandleEmailMessages",
-                            () => HandleEmailMessages(),
+                        HangfireJobs.handleEmailMessages = HandleEmailMessages;
+
+                        HangfireJobs.deleteOldEmailMessages = DeleteOldEmailsAndLogs;
+
+                        _recurringJobManager.AddOrUpdate<HangfireJobs>(
+                            "handle-email-messages", (job) => job.HandleEmailMessages(),
                             _configuration["SMTPReceiver:HandleEmailIntervalCronExpression"], new RecurringJobOptions
                             {
                                 QueueName = "onesource_main_queue"
@@ -54,9 +61,9 @@ namespace OneSourceSMTPServer.Services
 
                         _logger.LogInformation("Starting deleting old email and logs hangfire task.");
 
-                        RecurringJob.AddOrUpdate(
-                            "DeleteOldEmailsAndLogs",
-                            () => DeleteOldEmailsAndLogs(),
+                        _recurringJobManager.AddOrUpdate<HangfireJobs>(
+                            "delete-old-emails-and-logs",
+                            (job) => job.DeleteOldEmailMessages(),
                             _configuration["DataRetentionPolicy:DeleteOldLogsAndEmailsCronExpression"], new RecurringJobOptions
                             {
                                 QueueName = "onesource_main_queue"
@@ -73,7 +80,7 @@ namespace OneSourceSMTPServer.Services
 
                         _logger.LogInformation("Started TCP listener to listen for incoming emails from Test1");
 
-                        _ = EnqueueEmailMessage(listener, cancellationToken);
+                        _ = EnqueueEmailMessage(cancellationToken);
 
                         serviceStarted = true;
                     }
@@ -97,7 +104,7 @@ namespace OneSourceSMTPServer.Services
             listener.Stop();
         }
 
-        private async Task EnqueueEmailMessage(TcpListener listener, CancellationToken cancellationToken)
+        private async Task EnqueueEmailMessage(CancellationToken cancellationToken)
         {
             try
             {
@@ -210,7 +217,6 @@ namespace OneSourceSMTPServer.Services
             }
         }
 
-        [RetryInQueue("onesource_main_queue")]
         public async Task HandleEmailMessages()
         {
             while (emailMessageQueue.TryPeek(out var emailMessage))
@@ -570,7 +576,6 @@ namespace OneSourceSMTPServer.Services
             _logger.LogInformation("HandleEmailMessages job: Ended handling email received messages.");
         }
 
-        [RetryInQueue("onesource_main_queue")]
         public async Task DeleteOldEmailsAndLogs()
         {
             try

@@ -22,4 +22,10 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="7.0.1" />
     <PackageReference Include="MimeKit" Version="4.6.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="OneSourceSharedLibrary">
+      <HintPath>..\..\..\..\..\Documents\OneSourceSharedLibrary\OneSourceSharedLibrary.dll</HintPath>
+    </Reference>
+  </ItemGroup>
 </Project>

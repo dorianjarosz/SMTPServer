@@ -26,8 +26,9 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.AddHostedService<Worker>();
 
         services.AddHangfire(configuration => configuration
-                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
                 .UseRecommendedSerializerSettings()
+                .UseSimpleAssemblyNameTypeSerializer()
                 .UseResultsInContinuations()
                 .UseMAMQSqlServerStorage(connectionString, new SqlServerStorageOptions
                 {
