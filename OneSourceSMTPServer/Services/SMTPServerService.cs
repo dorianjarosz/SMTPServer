@@ -217,7 +217,7 @@ namespace OneSourceSMTPServer.Services
             }
         }
 
-        public async Task HandleEmailMessages()
+        private async Task HandleEmailMessages()
         {
             while (emailMessageQueue.TryPeek(out var emailMessage))
             {
@@ -576,7 +576,7 @@ namespace OneSourceSMTPServer.Services
             _logger.LogInformation("HandleEmailMessages job: Ended handling email received messages.");
         }
 
-        public async Task DeleteOldEmailsAndLogs()
+        private async Task DeleteOldEmailsAndLogs()
         {
             try
             {
