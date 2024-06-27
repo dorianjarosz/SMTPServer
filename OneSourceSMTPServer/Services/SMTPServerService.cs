@@ -282,7 +282,7 @@ namespace OneSourceSMTPServer.Services
                                     To = toEmailSingle,
                                     Subject = message.Subject.Replace("'", "''"),
                                     Mode = "SMTP IN - CRASH",
-                                    RuleName = ex.Message,
+                                    RuleName = ex.Message + " ------ " + ex.StackTrace,
                                     IsEnabled = false
                                 };
 
@@ -310,7 +310,7 @@ namespace OneSourceSMTPServer.Services
                                     To = toEmailSingle,
                                     Subject = message.Subject.Replace("'", "''"),
                                     Mode = "SMTP IN - CRASH",
-                                    RuleName = ex.Message,
+                                    RuleName = ex.Message + " ------ " + ex.StackTrace,
                                     IsEnabled = false
                                 };
 
@@ -354,7 +354,7 @@ namespace OneSourceSMTPServer.Services
                                     To = toEmailSingle,
                                     Subject = message.Subject.Replace("'", "''"),
                                     Mode = "SMTP IN - CRASH",
-                                    RuleName = ex.Message,
+                                    RuleName = ex.Message + " ------ " + ex.StackTrace,
                                     IsEnabled = false
                                 };
 
@@ -382,7 +382,7 @@ namespace OneSourceSMTPServer.Services
                                     To = toEmailSingle.Replace("'", "''"),
                                     Subject = message.Subject.Replace("'", "''"),
                                     Mode = "SMTP IN - CRASH",
-                                    RuleName = ex.Message,
+                                    RuleName = ex.Message + " ------ " + ex.StackTrace,
                                     IsEnabled = false
                                 };
 
@@ -537,6 +537,7 @@ namespace OneSourceSMTPServer.Services
                                         catch (Exception ex)
                                         {
                                             _logger.LogError(ex, $"HandleEmailMessages job: An error occured. Sender email: {fromEmail}, recipient email: {toEmailAux}, email file: {Path.GetFileName(fileName)}");
+                                            throw;
                                         }
                                     }
                                     else
@@ -557,6 +558,19 @@ namespace OneSourceSMTPServer.Services
                                 }
                                 catch (Exception ex)
                                 {
+                                    var smtpErrorLog = new SMTPLog
+                                    {
+                                        EmlPath = Path.GetFileName(fileName).Replace("'", "''"),
+                                        From = fromEmail.Replace("'", "''"),
+                                        To = toEmailSingle.Replace("'", "''"),
+                                        Subject = message.Subject.Replace("'", "''"),
+                                        Mode = "SMTP IN - CRASH",
+                                        RuleName = ex.Message + " ------ "+ ex.StackTrace,
+                                        IsEnabled = false
+                                    };
+
+                                    await _oneSourceRepository.AddAsync(smtpErrorLog);
+
                                     _logger.LogError(ex, $"HandleEmailMessages job: An error occured. Sender email: {fromEmail}, recipient email: {toEmailAux}, email file: {Path.GetFileName(fileName)}");
                                     throw;
                                 }
@@ -619,6 +633,19 @@ namespace OneSourceSMTPServer.Services
             }
             catch (Exception ex)
             {
+                var smtpErrorLog = new SMTPLog
+                {
+                    EmlPath = "N/A",
+                    From = "N/A",
+                    To = "N/A",
+                    Subject = "N/A",
+                    Mode = "SMTP IN - CRASH",
+                    RuleName = ex.Message + " ------ " + ex.StackTrace,
+                    IsEnabled = false
+                };
+
+                await _oneSourceRepository.AddAsync(smtpErrorLog);
+
                 _logger.LogError(ex, "DeleteOldEmailsAndLogs job: Service error occured");
             }
         }
