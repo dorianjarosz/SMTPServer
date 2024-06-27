@@ -45,8 +45,6 @@ IHost host = Host.CreateDefaultBuilder(args)
         {
             options.ServiceName = "SMTP Server";
         });
-
-        services.AddHostedService<Worker>();
     })
     .UseWindowsService()
     .Build();
