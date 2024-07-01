@@ -76,8 +76,6 @@ namespace OneSourceSMTPServer.Services
 
                         _logger.LogInformation("Started listening on TCP.");
 
-                        listener.Start();
-
                         _logger.LogInformation("Started TCP listener to listen for incoming emails from Test1");
 
                         _ = EnqueueEmailMessage(cancellationToken);
@@ -90,11 +88,36 @@ namespace OneSourceSMTPServer.Services
             }
             catch (Exception ex)
             {
+                var smtpErrorLog = new SMTPLog
+                {
+                    EmlPath = "N/A",
+                    From = "N/A",
+                    To = "N/A",
+                    Subject = "N/A",
+                    Mode = "SMTP IN - CRASH",
+                    RuleName = ex.Message + " ------ " + ex.StackTrace,
+                    IsEnabled = false
+                };
+
+                await _oneSourceRepository.AddAsync(smtpErrorLog);
+
                 _logger.LogError(ex, "SMTP Server: Operation failed.");
-                throw;
             }
             finally
             {
+                var smtpErrorLog = new SMTPLog
+                {
+                    EmlPath = "N/A",
+                    From = "N/A",
+                    To = "N/A",
+                    Subject = "N/A",
+                    Mode = "SMTP IN - CRASH",
+                    RuleName = "Stopped TCP listener for listening for incoming emails from atosonesource.com.",
+                    IsEnabled = false
+                };
+
+                await _oneSourceRepository.AddAsync(smtpErrorLog);
+
                 _logger.LogInformation("Stopped TCP listener for listening for incoming emails from atosonesource.com.");
             }
         }
@@ -106,14 +129,15 @@ namespace OneSourceSMTPServer.Services
 
         private async Task EnqueueEmailMessage(CancellationToken cancellationToken)
         {
-            try
-            {
-                while (!cancellationToken.IsCancellationRequested)
-                {
+            listener.Start();
 
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
                     _logger.LogInformation("Started listening on TCP.");
 
-                    TcpClient client = await listener.AcceptTcpClientAsync();
+                    var client = await listener.AcceptTcpClientAsync();
 
                     _logger.LogInformation("Intercepted an email message. Enqueuing the message started.");
 
@@ -196,24 +220,63 @@ namespace OneSourceSMTPServer.Services
                             _logger.LogInformation("Closing the stream in the stream reader.");
                         }
                     }
-
-                    client.Close();
                 }
-            }
-            catch (OperationCanceledException ex)
-            {
-                _logger.LogError(ex, "Operation cancelled");
-                throw;
-            }
-            catch (FormatException ex)
-            {
-                _logger.LogError(ex, "Format exception");
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "SMTP Server: Operation failed.");
-                throw;
+                catch (OperationCanceledException ex)
+                {
+                    var smtpErrorLog = new SMTPLog
+                    {
+                        EmlPath = "N/A",
+                        From = "N/A",
+                        To = "N/A",
+                        Subject = "N/A",
+                        Mode = "SMTP IN - CRASH",
+                        RuleName = ex.Message + " ------ " + ex.StackTrace,
+                        IsEnabled = false
+                    };
+
+                    await _oneSourceRepository.AddAsync(smtpErrorLog);
+
+                    listener.Start();
+
+                    _logger.LogError(ex, "Operation cancelled. Resuming the operation.");
+                }
+                catch (FormatException ex)
+                {
+                    var smtpErrorLog = new SMTPLog
+                    {
+                        EmlPath = "N/A",
+                        From = "N/A",
+                        To = "N/A",
+                        Subject = "N/A",
+                        Mode = "SMTP IN - CRASH",
+                        RuleName = ex.Message + " ------ " + ex.StackTrace,
+                        IsEnabled = false
+                    };
+
+                    await _oneSourceRepository.AddAsync(smtpErrorLog);
+
+                    _logger.LogError(ex, "Format exception");
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    var smtpErrorLog = new SMTPLog
+                    {
+                        EmlPath = "N/A",
+                        From = "N/A",
+                        To = "N/A",
+                        Subject = "N/A",
+                        Mode = "SMTP IN - CRASH",
+                        RuleName = ex.Message + " ------ " + ex.StackTrace,
+                        IsEnabled = false
+                    };
+
+                    await _oneSourceRepository.AddAsync(smtpErrorLog);
+
+                    _logger.LogError(ex, "SMTP Server: Operation failed. Resuming the operation.");
+
+                    listener.Start();
+                }
             }
         }
 
@@ -531,7 +594,7 @@ namespace OneSourceSMTPServer.Services
                                             }
                                             else
                                             {
-                                                _logger.LogError("HandleEmailMessages job: "+remoteServerResponse.StatusCode + " has been returned. " + remoteServerResponse.Content?.ToString() ?? null);
+                                                _logger.LogError("HandleEmailMessages job: "+remoteServerResponse.StatusCode + " has been returned. " + (remoteServerResponse.Content?.ToString() ?? null) + " from the URL: "+ url);
                                             }
                                         }
                                         catch (Exception ex)
@@ -583,6 +646,19 @@ namespace OneSourceSMTPServer.Services
                 }
                 catch (Exception ex)
                 {
+                    var smtpErrorLog = new SMTPLog
+                    {
+                        EmlPath = "N/A",
+                        From = "N/A",
+                        To = "N/A",
+                        Subject = "N/A",
+                        Mode = "SMTP IN - CRASH",
+                        RuleName = ex.Message + " ------ " + ex.StackTrace,
+                        IsEnabled = false
+                    };
+
+                    await _oneSourceRepository.AddAsync(smtpErrorLog);
+
                     _logger.LogError(ex, "HandleEmailMessages job: Service error occured");
                 }
             }
